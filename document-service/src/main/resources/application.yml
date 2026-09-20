@@ -1,0 +1,78 @@
+# Document module — independently runnable Spring Boot app.
+# Internal port only. Public traffic enters via api-gateway /documents/** (no strip-prefix).
+#
+# Environments (SPRING_PROFILES_ACTIVE):
+#   dev  — local machine (default for spring-boot:run)
+#   test — shared test network
+#   prd  — production
+#
+# Identity (gateway already authenticated the user; this process does not validate
+# client JWTs). Header mapping matches the existing Keycloak convention used by
+# the host SecurityConfig:
+#   sub                          -> X-User-Id
+#   company_id or companyId      -> X-Company-Id
+#   tenant_id or tenantId        -> X-Tenant-Id
+#   roles + realm_access.roles
+#     + resource_access.*.roles  -> X-Roles
+# HMAC: v1\nuserId\ncompanyId\ntenantId\nroles\ntimestamp  (HmacSHA256 hex)
+# Token/header company_id and tenant_id win over body/query values.
+# tenant_id in JSON is ignored; identity headers are the source of truth.
+
+spring:
+  application:
+    name: document-service
+  config:
+    import:
+      - optional:classpath:documents.yml
+      - optional:file:./application-local.yml
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:${DATABASE_URL:jdbc:postgresql://localhost:5432/postgres}}
+    username: ${SPRING_DATASOURCE_USERNAME:${DATABASE_USERNAME:postgres}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${DATABASE_PASSWORD:postgres}}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-test-query: SELECT 1
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: documents
+        jdbc:
+          time_zone: UTC
+        hbm2ddl:
+          create_namespaces: true
+  flyway:
+    enabled: false
+
+server:
+  port: ${SERVER_PORT:8085}
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      enabled: true
+
+gateway:
+  identity:
+    hmac-secret: ${GATEWAY_INTERNAL_SECRET:dev-gateway-internal-secret}
+    max-skew-ms: 300000
+    headers:
+      user-id: X-User-Id
+      company-id: X-Company-Id
+      tenant-id: X-Tenant-Id
+      roles: X-Roles
+      timestamp: X-Gateway-Timestamp
+      signature: X-Internal-Signature
+
+platform:
+  security:
+    permit-all:
+      - /actuator/health
+      - /actuator/health/**
+      - /actuator/info

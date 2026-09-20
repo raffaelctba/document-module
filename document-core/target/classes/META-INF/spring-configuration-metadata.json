@@ -1,0 +1,104 @@
+{
+  "groups": [
+    {
+      "name": "documents",
+      "type": "com.documents.config.DocumentsProperties",
+      "sourceType": "com.documents.config.DocumentsProperties"
+    },
+    {
+      "name": "documents.http",
+      "type": "com.documents.config.DocumentsProperties$Http",
+      "sourceType": "com.documents.config.DocumentsProperties",
+      "sourceMethod": "public com.documents.config.DocumentsProperties.Http http() "
+    },
+    {
+      "name": "documents.owner-lookup",
+      "type": "com.documents.config.DocumentsProperties$OwnerLookup",
+      "sourceType": "com.documents.config.DocumentsProperties",
+      "sourceMethod": "public com.documents.config.DocumentsProperties.OwnerLookup ownerLookup() "
+    },
+    {
+      "name": "documents.storage",
+      "type": "com.documents.config.DocumentsProperties$Storage",
+      "sourceType": "com.documents.config.DocumentsProperties",
+      "sourceMethod": "public com.documents.config.DocumentsProperties.Storage storage() "
+    }
+  ],
+  "properties": [
+    {
+      "name": "documents.http.max-page-size",
+      "type": "java.lang.Integer",
+      "sourceType": "com.documents.config.DocumentsProperties$Http"
+    },
+    {
+      "name": "documents.owner-lookup.enabled",
+      "type": "java.lang.Boolean",
+      "sourceType": "com.documents.config.DocumentsProperties$OwnerLookup",
+      "defaultValue": false
+    },
+    {
+      "name": "documents.owners",
+      "type": "java.util.Map<java.lang.String,java.util.List<java.lang.String>>",
+      "sourceType": "com.documents.config.DocumentsProperties"
+    },
+    {
+      "name": "documents.product-default",
+      "type": "java.lang.String",
+      "sourceType": "com.documents.config.DocumentsProperties"
+    },
+    {
+      "name": "documents.purposes",
+      "type": "java.util.Map<java.lang.String,java.util.List<java.lang.String>>",
+      "sourceType": "com.documents.config.DocumentsProperties"
+    },
+    {
+      "name": "documents.storage.access-key",
+      "type": "java.lang.String",
+      "sourceType": "com.documents.config.DocumentsProperties$Storage"
+    },
+    {
+      "name": "documents.storage.bucket",
+      "type": "java.lang.String",
+      "sourceType": "com.documents.config.DocumentsProperties$Storage"
+    },
+    {
+      "name": "documents.storage.endpoint",
+      "type": "java.lang.String",
+      "sourceType": "com.documents.config.DocumentsProperties$Storage"
+    },
+    {
+      "name": "documents.storage.key-prefix",
+      "type": "java.lang.String",
+      "sourceType": "com.documents.config.DocumentsProperties$Storage"
+    },
+    {
+      "name": "documents.storage.path-style",
+      "type": "java.lang.Boolean",
+      "sourceType": "com.documents.config.DocumentsProperties$Storage"
+    },
+    {
+      "name": "documents.storage.provider",
+      "type": "java.lang.String",
+      "sourceType": "com.documents.config.DocumentsProperties$Storage"
+    },
+    {
+      "name": "documents.storage.region",
+      "type": "java.lang.String",
+      "sourceType": "com.documents.config.DocumentsProperties$Storage"
+    },
+    {
+      "name": "documents.storage.secret-key",
+      "type": "java.lang.String",
+      "sourceType": "com.documents.config.DocumentsProperties$Storage"
+    },
+    {
+      "name": "documents.storage.signed-url-ttl",
+      "type": "java.time.Duration",
+      "sourceType": "com.documents.config.DocumentsProperties$Storage"
+    }
+  ],
+  "hints": [],
+  "ignored": {
+    "properties": []
+  }
+}

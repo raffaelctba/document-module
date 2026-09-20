@@ -1,0 +1,3 @@
+com\documents\controller\DocumentController.class
+com\documents\DocumentsApplication.class
+com\documents\security\DocumentAccessService.class

@@ -1,0 +1,54 @@
+documents:
+  product-default: ${DOCUMENTS_PRODUCT_DEFAULT:myproperty}
+  owners:
+    myproperty:
+      - PROPERTY
+      - AMENITY
+      - USER_PROFILE
+      - CONVERSATION
+    mycleaning:
+      - SITE
+      - JOB
+      - USER_PROFILE
+      - BEFORE_AFTER
+  purposes:
+    myproperty:
+      - COVER
+      - GALLERY
+      - FLOOR_PLAN
+      - CONTRACT
+      - INVOICE
+      - RECEIPT
+      - REPORT
+      - PHOTO
+      - OTHER
+      - AVATAR
+      - ID_DOCUMENT
+      - LEASE
+      - INSPECTION
+      - NOTICE
+      - APPLICATION
+      - INCOME
+      - COI
+      - CHAT_ATTACHMENT
+      - SIGNATURE
+      - MINUTES
+      - EVICTION
+    mycleaning:
+      - BEFORE_PHOTO
+      - AFTER_PHOTO
+      - AVATAR
+  storage:
+    provider: ${DOCUMENTS_STORAGE_PROVIDER:memory}
+    bucket: ${DOCUMENTS_BUCKET:property-docs}
+    region: ${DOCUMENTS_S3_REGION:us-east-1}
+    endpoint: ${DOCUMENTS_S3_ENDPOINT:}
+    access-key: ${DOCUMENTS_S3_ACCESS_KEY:}
+    secret-key: ${DOCUMENTS_S3_SECRET_KEY:}
+    path-style: ${DOCUMENTS_S3_PATH_STYLE:true}
+    key-prefix: ${DOCUMENTS_KEY_PREFIX:docs}
+    signed-url-ttl: ${DOCUMENTS_SIGNED_URL_TTL:15m}
+  owner-lookup:
+    enabled: ${DOCUMENTS_OWNER_LOOKUP_ENABLED:false}
+  http:
+    max-page-size: ${DOCUMENTS_HTTP_MAX_PAGE_SIZE:100}
