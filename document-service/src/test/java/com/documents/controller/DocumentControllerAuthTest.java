@@ -4,10 +4,11 @@ import com.documents.api.DocumentsApi;
 import com.documents.api.dto.CreateDocumentRequestDto;
 import com.documents.api.dto.DocumentActor;
 import com.documents.api.dto.DocumentResponseDto;
-import com.documents.domain.service.DocumentDomainServiceTest;
+import com.documents.config.DocumentsProperties;
 import com.myproperty.platform.security.GatewayIdentityFilter;
 import com.myproperty.platform.security.IdentityProperties;
 import com.myproperty.platform.testing.IdentityRequests;
+import com.myproperty.platform.web.PlatformExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -15,7 +16,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -42,11 +46,31 @@ class DocumentControllerAuthTest {
         IdentityProperties properties = new IdentityProperties(
                 IdentityRequests.SECRET, 300_000L, IdentityProperties.Headers.defaults());
         mockMvc = MockMvcBuilders.standaloneSetup(
-                        new DocumentController(documentsApi, DocumentDomainServiceTest.properties()))
+                        new DocumentController(documentsApi, properties()))
                 .addFilters(new GatewayIdentityFilter(properties))
                 .setControllerAdvice(new PlatformExceptionHandler())
                 .setCustomArgumentResolvers()
                 .build();
+    }
+
+    private static DocumentsProperties properties() {
+        return new DocumentsProperties(
+                "myproperty",
+                Map.of(
+                        "myproperty", List.of("PROPERTY", "AMENITY", "USER_PROFILE", "CONVERSATION"),
+                        "mycleaning", List.of("SITE", "JOB", "USER_PROFILE", "BEFORE_AFTER")),
+                Map.of(
+                        "myproperty", List.of(
+                                "COVER", "GALLERY", "FLOOR_PLAN", "CONTRACT", "INVOICE", "RECEIPT",
+                                "REPORT", "PHOTO", "OTHER", "AVATAR", "ID_DOCUMENT", "LEASE",
+                                "INSPECTION", "NOTICE", "APPLICATION", "INCOME", "COI",
+                                "CHAT_ATTACHMENT", "SIGNATURE", "MINUTES", "EVICTION"),
+                        "mycleaning", List.of("BEFORE_PHOTO", "AFTER_PHOTO", "AVATAR")),
+                new DocumentsProperties.Storage(
+                        "memory", "property-docs", "us-east-1", null, null, null, true, "docs",
+                        Duration.ofMinutes(15)),
+                new DocumentsProperties.OwnerLookup(false),
+                new DocumentsProperties.Http(100));
     }
 
     @Test

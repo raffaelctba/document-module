@@ -9,19 +9,19 @@
       "name": "documents.http",
       "type": "com.documents.config.DocumentsProperties$Http",
       "sourceType": "com.documents.config.DocumentsProperties",
-      "sourceMethod": "public com.documents.config.DocumentsProperties.Http http() "
+      "sourceMethod": "http()"
     },
     {
       "name": "documents.owner-lookup",
       "type": "com.documents.config.DocumentsProperties$OwnerLookup",
       "sourceType": "com.documents.config.DocumentsProperties",
-      "sourceMethod": "public com.documents.config.DocumentsProperties.OwnerLookup ownerLookup() "
+      "sourceMethod": "ownerLookup()"
     },
     {
       "name": "documents.storage",
       "type": "com.documents.config.DocumentsProperties$Storage",
       "sourceType": "com.documents.config.DocumentsProperties",
-      "sourceMethod": "public com.documents.config.DocumentsProperties.Storage storage() "
+      "sourceMethod": "storage()"
     }
   ],
   "properties": [

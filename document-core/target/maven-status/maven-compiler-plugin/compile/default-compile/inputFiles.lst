@@ -18,6 +18,14 @@ C:\Users\raffa\Projects\PlatformApps\PlatformModules\document-module\document-co
 C:\Users\raffa\Projects\PlatformApps\PlatformModules\document-module\document-core\src\main\java\com\documents\domain\model\Document.java
 C:\Users\raffa\Projects\PlatformApps\PlatformModules\document-module\document-core\src\main\java\com\documents\domain\model\DocumentStatus.java
 C:\Users\raffa\Projects\PlatformApps\PlatformModules\document-module\document-core\src\main\java\com\documents\domain\model\OwnerRef.java
+C:\Users\raffa\Projects\PlatformApps\PlatformModules\document-module\document-core\src\main\java\com\documents\domain\policy\BilateralSignoff.java
+C:\Users\raffa\Projects\PlatformApps\PlatformModules\document-module\document-core\src\main\java\com\documents\domain\policy\DocumentPolicy.java
+C:\Users\raffa\Projects\PlatformApps\PlatformModules\document-module\document-core\src\main\java\com\documents\domain\policy\DocumentPolicyRegistry.java
+C:\Users\raffa\Projects\PlatformApps\PlatformModules\document-module\document-core\src\main\java\com\documents\domain\policy\EvidenceCapabilities.java
+C:\Users\raffa\Projects\PlatformApps\PlatformModules\document-module\document-core\src\main\java\com\documents\domain\policy\FiscalExportType.java
+C:\Users\raffa\Projects\PlatformApps\PlatformModules\document-module\document-core\src\main\java\com\documents\domain\policy\InitialDocumentPolicies.java
+C:\Users\raffa\Projects\PlatformApps\PlatformModules\document-module\document-core\src\main\java\com\documents\domain\policy\InspectionCapability.java
+C:\Users\raffa\Projects\PlatformApps\PlatformModules\document-module\document-core\src\main\java\com\documents\domain\policy\SignatureLevel.java
 C:\Users\raffa\Projects\PlatformApps\PlatformModules\document-module\document-core\src\main\java\com\documents\domain\service\DocumentDomainService.java
 C:\Users\raffa\Projects\PlatformApps\PlatformModules\document-module\document-core\src\main\java\com\documents\infrastructure\owner\NoOpOwnerLookup.java
 C:\Users\raffa\Projects\PlatformApps\PlatformModules\document-module\document-core\src\main\java\com\documents\infrastructure\persistence\entity\DocumentEntity.java
