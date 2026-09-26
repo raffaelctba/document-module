@@ -1,7 +1,0 @@
-com\documents\DocumentModuleDependencyTest.class
-com\documents\application\service\DocumentAppServiceTest$InMemoryDocuments.class
-com\documents\application\service\DocumentAppServiceTest.class
-com\documents\config\DocumentHostScanTest.class
-com\documents\application\service\DocumentAppServiceTest$RecordingOwnerLookup.class
-com\documents\domain\service\DocumentDomainServiceTest.class
-com\documents\domain\policy\DocumentPolicyRegistryTest.class
