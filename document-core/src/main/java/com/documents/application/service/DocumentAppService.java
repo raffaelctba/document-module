@@ -11,7 +11,10 @@ import com.documents.api.exception.OwnerVerificationException;
 import com.myproperty.platform.common.time.ClockPort;
 import com.documents.application.port.DocumentRepositoryPort;
 import com.documents.application.port.ObjectStoragePort;
+import com.documents.api.DocumentAccessPort;
 import com.documents.api.OwnerLookupPort;
+import com.documents.domain.event.DocumentDeletedEvent;
+import com.documents.domain.event.DocumentReadyEvent;
 import com.documents.config.DocumentsProperties;
 import com.documents.domain.model.Document;
 import com.documents.domain.model.OwnerRef;
@@ -19,13 +22,18 @@ import com.documents.domain.service.DocumentDomainService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.access.AccessDeniedException;
+import com.documents.api.exception.AccessDeniedException;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HexFormat;
+import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Transactional
@@ -39,6 +47,8 @@ public class DocumentAppService {
     private final ClockPort clock;
     private final DocumentDomainService domain;
     private final DocumentsProperties properties;
+    private final DocumentAccessPort access;
+    private final ApplicationEventPublisher events;
 
     public DocumentAppService(DocumentRepositoryPort documents,
                               ObjectStoragePort objectStorage,
@@ -46,12 +56,25 @@ public class DocumentAppService {
                               ClockPort clock,
                               DocumentDomainService domain,
                               DocumentsProperties properties) {
+        this(documents, objectStorage, ownerLookup, clock, domain, properties, new DocumentAccessPort() {}, null);
+    }
+
+    public DocumentAppService(DocumentRepositoryPort documents,
+                              ObjectStoragePort objectStorage,
+                              OwnerLookupPort ownerLookup,
+                              ClockPort clock,
+                              DocumentDomainService domain,
+                              DocumentsProperties properties,
+                              DocumentAccessPort access,
+                              ApplicationEventPublisher events) {
         this.documents = documents;
         this.objectStorage = objectStorage;
         this.ownerLookup = ownerLookup;
         this.clock = clock;
         this.domain = domain;
         this.properties = properties;
+        this.access = access == null ? new DocumentAccessPort() {} : access;
+        this.events = events;
     }
 
     public DocumentResponseDto create(CreateDocumentRequestDto request, DocumentActor actor) {
@@ -64,10 +87,21 @@ public class DocumentAppService {
             product = domain.resolveProduct(request.product());
             domain.assertOwnerAllowed(product, owner.type());
             domain.assertPurposeAllowed(product, request.purpose());
+            domain.assertContentAllowed(request.contentType(), request.sizeBytes());
         } catch (IllegalArgumentException ex) {
             throw new OwnerNotAllowedException(ex.getMessage());
         }
         verifyOwner(product, owner, actor);
+
+        if (request.idempotencyKey() != null && !request.idempotencyKey().isBlank()) {
+            var existing = documents.findByTenantIdAndIdempotencyKey(actor.tenantId(), request.idempotencyKey());
+            if (existing.isPresent()) {
+                Document doc = existing.get();
+                if (!doc.deleted()) {
+                    return toDtoWithUrls(doc);
+                }
+            }
+        }
 
         int version = 1;
         String supersedesDocumentId = request.supersedesDocumentId();
@@ -104,6 +138,29 @@ public class DocumentAppService {
                 clock.now(),
                 version,
                 supersedesDocumentId);
+        if (request.idempotencyKey() != null) {
+            document = Document.builder()
+                    .withId(document.id())
+                    .withProduct(document.product())
+                    .withTenantId(document.tenantId())
+                    .withCompanyId(document.companyId())
+                    .withOwner(document.owner())
+                    .withPurpose(document.purpose())
+                    .withVersion(document.version())
+                    .withSupersedesDocumentId(document.supersedesDocumentId())
+                    .withStorageKey(document.storageKey())
+                    .withOriginalName(document.originalName())
+                    .withContentType(document.contentType())
+                    .withSizeBytes(document.sizeBytes())
+                    .withChecksum(document.checksum())
+                    .withStatus(document.status())
+                    .withTags(document.tags())
+                    .withCreatedBy(document.createdBy())
+                    .withCreatedAt(document.createdAt())
+                    .withDeletedAt(document.deletedAt())
+                    .withIdempotencyKey(request.idempotencyKey())
+                    .build();
+        }
         Document saved = documents.save(document);
         return toDto(saved, putUrl(saved), null);
     }
@@ -113,7 +170,7 @@ public class DocumentAppService {
             throw new IllegalArgumentException("content is required");
         }
         DocumentResponseDto created = create(request, actor);
-        Document document = documents.findById(created.id())
+        Document document = documents.findByIdAndTenantId(created.id(), actor.tenantId())
                 .orElseThrow(() -> new DocumentNotFoundException(created.id()));
         String contentType = request.contentType() != null ? request.contentType() : document.contentType();
         objectStorage.put(document.storageKey(), content, contentType);
@@ -135,8 +192,19 @@ public class DocumentAppService {
         CompleteDocumentRequestDto body = request == null
                 ? new CompleteDocumentRequestDto(null, null, null)
                 : request;
+        try {
+            domain.assertContentAllowed(
+                    body.contentType() != null ? body.contentType() : document.contentType(),
+                    body.sizeBytes() != null ? body.sizeBytes() : document.sizeBytes());
+        } catch (IllegalArgumentException ex) {
+            throw new OwnerNotAllowedException(ex.getMessage());
+        }
         document.markReady(body.sizeBytes(), body.checksum(), body.contentType());
-        return toDtoWithUrls(documents.save(document));
+        Document saved = documents.save(document);
+        publish(new DocumentReadyEvent(
+                saved.id(), saved.tenantId(), saved.owner().type(), saved.owner().id(),
+                saved.purpose(), clock.now()));
+        return toDtoWithUrls(saved);
     }
 
     public DocumentResponseDto update(String documentId, UpdateDocumentRequestDto request, DocumentActor actor) {
@@ -159,6 +227,54 @@ public class DocumentAppService {
         Document document = requireWritable(documentId, actor);
         document.softDelete(clock.now());
         documents.save(document);
+        publish(new DocumentDeletedEvent(
+                document.id(), document.tenantId(), document.owner().type(), document.owner().id(), clock.now()));
+    }
+
+    @Transactional(readOnly = true)
+    public List<DocumentResponseDto> listByIds(Collection<String> ids, DocumentActor actor) {
+        requireActor(actor);
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        List<DocumentResponseDto> out = new ArrayList<>();
+        for (Document document : documents.findByIdsAndTenantId(ids, actor.tenantId())) {
+            try {
+                assertCanRead(actor, document.owner());
+                out.add(toDtoWithUrls(document));
+            } catch (AccessDeniedException ignored) {
+                // skip unauthorized ids silently
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    /** Hard-deletes soft-deleted documents older than retention; removes object storage bytes. */
+    public int purgeDeleted(DocumentActor actor, int limit) {
+        requireActor(actor);
+        if (!actor.hasAnyRole("ADMIN", "MANAGER")) {
+            throw new AccessDeniedException("purgeDeleted requires ADMIN or MANAGER");
+        }
+        Instant cutoff = clock.now().minus(properties.softDeleteRetention());
+        int max = limit < 1 ? 100 : Math.min(limit, 500);
+        List<Document> doomed = documents.findDeletedBefore(actor.tenantId(), cutoff, max);
+        int count = 0;
+        for (Document document : doomed) {
+            try {
+                objectStorage.delete(document.storageKey());
+            } catch (RuntimeException ignored) {
+                // continue purge of metadata
+            }
+            documents.hardDelete(document.id());
+            count++;
+        }
+        return count;
+    }
+
+    private void publish(Object event) {
+        if (events != null) {
+            events.publishEvent(event);
+        }
     }
 
     @Transactional(readOnly = true)
@@ -230,10 +346,9 @@ public class DocumentAppService {
 
     private Document requireVisible(String documentId, DocumentActor actor) {
         requireActor(actor);
-        Document document = documents.findById(documentId)
+        Document document = documents.findByIdAndTenantId(documentId, actor.tenantId())
                 .filter(candidate -> !candidate.deleted())
                 .orElseThrow(() -> new DocumentNotFoundException(documentId));
-        assertSameTenant(actor, document.tenantId());
         assertSameCompany(actor, document.companyId());
         assertCanRead(actor, document.owner());
         return document;
@@ -263,6 +378,13 @@ public class DocumentAppService {
     }
 
     private void assertCanWrite(DocumentActor actor, OwnerRef owner) {
+        Boolean host = access.canWrite(actor, owner);
+        if (Boolean.FALSE.equals(host)) {
+            throw new AccessDeniedException("Not allowed to attach documents to " + owner.type());
+        }
+        if (Boolean.TRUE.equals(host)) {
+            return;
+        }
         if (owner.profile()) {
             if (owner.id().equals(actor.userId()) || actor.hasAnyRole(writeRoles())) {
                 return;
@@ -275,6 +397,13 @@ public class DocumentAppService {
     }
 
     private void assertCanRead(DocumentActor actor, OwnerRef owner) {
+        Boolean host = access.canRead(actor, owner);
+        if (Boolean.FALSE.equals(host)) {
+            throw new AccessDeniedException("Not allowed to read documents for " + owner.type());
+        }
+        if (Boolean.TRUE.equals(host)) {
+            return;
+        }
         if (owner.profile()) {
             if (owner.id().equals(actor.userId()) || actor.hasAnyRole(readRoles())) {
                 return;

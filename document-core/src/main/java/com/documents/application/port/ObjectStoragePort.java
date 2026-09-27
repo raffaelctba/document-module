@@ -15,6 +15,8 @@ public interface ObjectStoragePort {
 
     boolean exists(String storageKey);
 
+    void delete(String storageKey);
+
     record SignedUrl(String url, Instant expiresAt) {
     }
 }

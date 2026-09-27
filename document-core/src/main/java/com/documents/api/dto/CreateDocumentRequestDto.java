@@ -22,7 +22,8 @@ public record CreateDocumentRequestDto(
         String contentType,
         Long sizeBytes,
         Set<String> tags,
-        String supersedesDocumentId) {
+        String supersedesDocumentId,
+        String idempotencyKey) {
 
     public CreateDocumentRequestDto(
             String ownerType,
@@ -33,7 +34,20 @@ public record CreateDocumentRequestDto(
             String contentType,
             Long sizeBytes,
             Set<String> tags) {
-        this(ownerType, ownerId, purpose, product, filename, contentType, sizeBytes, tags, null);
+        this(ownerType, ownerId, purpose, product, filename, contentType, sizeBytes, tags, null, null);
+    }
+
+    public CreateDocumentRequestDto(
+            String ownerType,
+            String ownerId,
+            String purpose,
+            String product,
+            String filename,
+            String contentType,
+            Long sizeBytes,
+            Set<String> tags,
+            String supersedesDocumentId) {
+        this(ownerType, ownerId, purpose, product, filename, contentType, sizeBytes, tags, supersedesDocumentId, null);
     }
 
     public CreateDocumentRequestDto {
@@ -66,5 +80,6 @@ public record CreateDocumentRequestDto(
             tags = Set.copyOf(normalized);
         }
         supersedesDocumentId = optionalLength("supersedesDocumentId", supersedesDocumentId, 36);
+        idempotencyKey = optionalLength("idempotencyKey", idempotencyKey, 128);
     }
 }

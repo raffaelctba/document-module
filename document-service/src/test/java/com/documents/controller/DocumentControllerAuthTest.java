@@ -46,7 +46,7 @@ class DocumentControllerAuthTest {
         IdentityProperties properties = new IdentityProperties(
                 IdentityRequests.SECRET, 300_000L, IdentityProperties.Headers.defaults());
         mockMvc = MockMvcBuilders.standaloneSetup(
-                        new DocumentController(documentsApi, properties()))
+                        new DocumentController(documentsApi))
                 .addFilters(new GatewayIdentityFilter(properties))
                 .setControllerAdvice(new PlatformExceptionHandler())
                 .setCustomArgumentResolvers()
@@ -66,6 +66,9 @@ class DocumentControllerAuthTest {
                                 "INSPECTION", "NOTICE", "APPLICATION", "INCOME", "COI",
                                 "CHAT_ATTACHMENT", "SIGNATURE", "MINUTES", "EVICTION"),
                         "mycleaning", List.of("BEFORE_PHOTO", "AFTER_PHOTO", "AVATAR")),
+                null,
+                null,
+                List.of(),
                 null,
                 null,
                 new DocumentsProperties.Storage(

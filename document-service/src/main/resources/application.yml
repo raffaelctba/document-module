@@ -34,15 +34,19 @@ spring:
       connection-test-query: SELECT 1
   jpa:
     open-in-view: false
+    hibernate:
+      ddl-auto: validate
     properties:
       hibernate:
         default_schema: documents
         jdbc:
           time_zone: UTC
-        hbm2ddl:
-          create_namespaces: true
   flyway:
-    enabled: false
+    enabled: true
+    schemas: documents
+    default-schema: documents
+    create-schemas: true
+    locations: classpath:db/migration
 
 server:
   port: ${SERVER_PORT:8085}

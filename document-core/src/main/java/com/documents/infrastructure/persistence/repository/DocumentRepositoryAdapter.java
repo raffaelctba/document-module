@@ -6,10 +6,14 @@ import com.documents.domain.model.DocumentStatus;
 import com.documents.domain.model.OwnerRef;
 import com.documents.infrastructure.persistence.entity.DocumentEntity;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -24,13 +28,23 @@ public class DocumentRepositoryAdapter implements DocumentRepositoryPort {
 
     @Override
     public Document save(Document document) {
-        DocumentEntity saved = jpaRepository.save(toEntity(document));
-        return toDomain(saved);
+        return toDomain(jpaRepository.save(toEntity(document)));
     }
 
     @Override
     public Optional<Document> findById(String id) {
         return jpaRepository.findById(id).map(DocumentRepositoryAdapter::toDomain);
+    }
+
+    @Override
+    public Optional<Document> findByIdAndTenantId(String id, String tenantId) {
+        return jpaRepository.findByIdAndTenantId(id, tenantId).map(DocumentRepositoryAdapter::toDomain);
+    }
+
+    @Override
+    public Optional<Document> findByTenantIdAndIdempotencyKey(String tenantId, String idempotencyKey) {
+        return jpaRepository.findByTenantIdAndIdempotencyKey(tenantId, idempotencyKey)
+                .map(DocumentRepositoryAdapter::toDomain);
     }
 
     @Override
@@ -50,6 +64,29 @@ public class DocumentRepositoryAdapter implements DocumentRepositoryPort {
         return jpaRepository.findActive(
                         product, tenantId, ownerType, ownerId, normalizedPurpose, includeVersions, pageable)
                 .map(DocumentRepositoryAdapter::toDomain);
+    }
+
+    @Override
+    public List<Document> findByIdsAndTenantId(Collection<String> ids, String tenantId) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return jpaRepository.findByIdsAndTenantId(ids, tenantId).stream()
+                .map(DocumentRepositoryAdapter::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<Document> findDeletedBefore(String tenantId, Instant deletedBefore, int limit) {
+        int size = Math.max(1, Math.min(limit, 500));
+        return jpaRepository.findDeletedBefore(tenantId, deletedBefore, PageRequest.of(0, size)).stream()
+                .map(DocumentRepositoryAdapter::toDomain)
+                .toList();
+    }
+
+    @Override
+    public void hardDelete(String id) {
+        jpaRepository.deleteById(id);
     }
 
     private static DocumentEntity toEntity(Document document) {
@@ -72,6 +109,7 @@ public class DocumentRepositoryAdapter implements DocumentRepositoryPort {
         entity.setCreatedBy(document.createdBy());
         entity.setCreatedAt(document.createdAt());
         entity.setDeletedAt(document.deletedAt());
+        entity.setIdempotencyKey(document.idempotencyKey());
         entity.setTags(document.tags());
         return entity;
     }
@@ -96,6 +134,7 @@ public class DocumentRepositoryAdapter implements DocumentRepositoryPort {
                 .withCreatedBy(entity.getCreatedBy())
                 .withCreatedAt(entity.getCreatedAt())
                 .withDeletedAt(entity.getDeletedAt())
+                .withIdempotencyKey(entity.getIdempotencyKey())
                 .build();
     }
 }

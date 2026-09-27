@@ -73,6 +73,9 @@ public class DocumentEntity {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    @Column(name = "idempotency_key", length = 128)
+    private String idempotencyKey;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(schema = "documents", name = "document_tags", joinColumns = @JoinColumn(name = "document_id"))
     @Column(name = "tag", nullable = false, length = 64)
@@ -228,5 +231,13 @@ public class DocumentEntity {
 
     public void setTags(Set<String> tags) {
         this.tags = tags == null ? new LinkedHashSet<>() : new LinkedHashSet<>(tags);
+    }
+
+    public String getIdempotencyKey() {
+        return idempotencyKey;
+    }
+
+    public void setIdempotencyKey(String idempotencyKey) {
+        this.idempotencyKey = idempotencyKey;
     }
 }
