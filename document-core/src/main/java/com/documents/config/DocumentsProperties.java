@@ -16,18 +16,22 @@ public record DocumentsProperties(
         String productDefault,
         Map<String, List<String>> owners,
         Map<String, List<String>> purposes,
+        List<String> writeRoles,
+        List<String> readRoles,
         Storage storage,
         OwnerLookup ownerLookup,
         Http http) {
 
     public DocumentsProperties {
         if (productDefault == null || productDefault.isBlank()) {
-            productDefault = "myproperty";
+            productDefault = "platform";
         } else {
             productDefault = productDefault.trim().toLowerCase(Locale.ROOT);
         }
         owners = normalizeAllowlist(owners);
         purposes = normalizeAllowlist(purposes);
+        writeRoles = normalizeRoleList(writeRoles, List.of("ADMIN", "MANAGER", "OWNER", "DELEGATE"));
+        readRoles = normalizeRoleList(readRoles, List.of("ADMIN", "MANAGER", "OWNER", "DELEGATE", "MEMBER"));
         if (storage == null) {
             storage = Storage.defaults();
         }
@@ -37,6 +41,16 @@ public record DocumentsProperties(
         if (http == null) {
             http = new Http(100);
         }
+    }
+
+    private static List<String> normalizeRoleList(List<String> source, List<String> defaults) {
+        if (source == null || source.isEmpty()) {
+            return List.copyOf(defaults);
+        }
+        return source.stream()
+                .filter(v -> v != null && !v.isBlank())
+                .map(v -> v.trim().toUpperCase(Locale.ROOT))
+                .toList();
     }
 
     public List<String> ownersFor(String product) {
@@ -85,7 +99,7 @@ public record DocumentsProperties(
                 provider = provider.trim().toLowerCase(Locale.ROOT);
             }
             if (bucket == null || bucket.isBlank()) {
-                bucket = "property-docs";
+                bucket = "platform-docs";
             }
             if (region == null || region.isBlank()) {
                 region = "us-east-1";
@@ -111,7 +125,7 @@ public record DocumentsProperties(
         }
 
         public static Storage defaults() {
-            return new Storage("memory", "property-docs", "us-east-1", null, null, null, true, "docs",
+            return new Storage("memory", "platform-docs", "us-east-1", null, null, null, true, "docs",
                     Duration.ofMinutes(15));
         }
 

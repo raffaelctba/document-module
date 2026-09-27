@@ -15,6 +15,46 @@ spring:
 documents:
   storage:
     provider: ${DOCUMENTS_STORAGE_PROVIDER:memory}
+  # Host product catalog examples (not baked into core — config only).
+  # Override product-default and allow-lists per deployment.
+  owners:
+    myproperty:
+      - PROPERTY
+      - AMENITY
+      - USER_PROFILE
+      - CONVERSATION
+    mycleaning:
+      - SITE
+      - JOB
+      - USER_PROFILE
+      - BEFORE_AFTER
+  purposes:
+    myproperty:
+      - COVER
+      - GALLERY
+      - FLOOR_PLAN
+      - CONTRACT
+      - INVOICE
+      - RECEIPT
+      - REPORT
+      - PHOTO
+      - OTHER
+      - AVATAR
+      - ID_DOCUMENT
+      - LEASE
+      - INSPECTION
+      - NOTICE
+      - APPLICATION
+      - INCOME
+      - COI
+      - CHAT_ATTACHMENT
+      - SIGNATURE
+      - MINUTES
+      - EVICTION
+    mycleaning:
+      - BEFORE_PHOTO
+      - AFTER_PHOTO
+      - AVATAR
 
 logging:
   level:

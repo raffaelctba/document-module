@@ -31,10 +31,7 @@ import java.util.UUID;
 @Transactional
 public class DocumentAppService {
 
-    private static final String[] WRITE_ROLES = {
-            "ADMIN", "PROPERTY_MANAGER", "PROPERTY_OWNER", "PROPERTY_DELEGATE"};
-    private static final String[] READ_ROLES = {
-            "ADMIN", "PROPERTY_MANAGER", "PROPERTY_OWNER", "PROPERTY_DELEGATE", "PROPERTY_TENANT"};
+    // Roles are product-agnostic defaults from DocumentsProperties (configurable per host).
 
     private final DocumentRepositoryPort documents;
     private final ObjectStoragePort objectStorage;
@@ -267,24 +264,24 @@ public class DocumentAppService {
 
     private void assertCanWrite(DocumentActor actor, OwnerRef owner) {
         if (owner.profile()) {
-            if (owner.id().equals(actor.userId()) || actor.hasAnyRole(WRITE_ROLES)) {
+            if (owner.id().equals(actor.userId()) || actor.hasAnyRole(writeRoles())) {
                 return;
             }
             throw new AccessDeniedException("Not allowed to attach to this profile");
         }
-        if (!actor.hasAnyRole(WRITE_ROLES)) {
+        if (!actor.hasAnyRole(writeRoles())) {
             throw new AccessDeniedException("Not allowed to attach documents to " + owner.type());
         }
     }
 
     private void assertCanRead(DocumentActor actor, OwnerRef owner) {
         if (owner.profile()) {
-            if (owner.id().equals(actor.userId()) || actor.hasAnyRole(READ_ROLES)) {
+            if (owner.id().equals(actor.userId()) || actor.hasAnyRole(readRoles())) {
                 return;
             }
             throw new AccessDeniedException("Not allowed to read this profile document");
         }
-        if (!actor.hasAnyRole(READ_ROLES)) {
+        if (!actor.hasAnyRole(readRoles())) {
             throw new AccessDeniedException("Not allowed to read documents for " + owner.type());
         }
     }
@@ -377,5 +374,13 @@ public class DocumentAppService {
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("SHA-256 not available", ex);
         }
+    }
+
+    private String[] writeRoles() {
+        return properties.writeRoles().toArray(String[]::new);
+    }
+
+    private String[] readRoles() {
+        return properties.readRoles().toArray(String[]::new);
     }
 }
