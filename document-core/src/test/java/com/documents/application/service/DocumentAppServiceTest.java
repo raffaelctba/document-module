@@ -102,7 +102,7 @@ class DocumentAppServiceTest {
 
     @Test
     void tenantCannotWritePropertyGallery() {
-        DocumentActor tenant = new DocumentActor("user-1", "co-1", "ten-1", Set.of("PROPERTY_TENANT"));
+        DocumentActor tenant = new DocumentActor("user-1", "co-1", "ten-1", Set.of("MEMBER"));
         assertThrows(AccessDeniedException.class, () -> service.create(galleryRequest("myproperty"), tenant));
     }
 
@@ -283,6 +283,8 @@ class DocumentAppServiceTest {
                 DocumentDomainServiceTest.properties().productDefault(),
                 DocumentDomainServiceTest.properties().owners(),
                 DocumentDomainServiceTest.properties().purposes(),
+                DocumentDomainServiceTest.properties().writeRoles(),
+                DocumentDomainServiceTest.properties().readRoles(),
                 DocumentDomainServiceTest.properties().storage(),
                 new DocumentsProperties.OwnerLookup(true),
                 DocumentDomainServiceTest.properties().http());
@@ -303,6 +305,8 @@ class DocumentAppServiceTest {
                 DocumentDomainServiceTest.properties().productDefault(),
                 DocumentDomainServiceTest.properties().owners(),
                 DocumentDomainServiceTest.properties().purposes(),
+                DocumentDomainServiceTest.properties().writeRoles(),
+                DocumentDomainServiceTest.properties().readRoles(),
                 DocumentDomainServiceTest.properties().storage(),
                 new DocumentsProperties.OwnerLookup(true),
                 DocumentDomainServiceTest.properties().http());
@@ -318,7 +322,7 @@ class DocumentAppServiceTest {
     }
 
     private static DocumentActor manager() {
-        return new DocumentActor("user-1", "co-1", "ten-1", Set.of("PROPERTY_MANAGER"));
+        return new DocumentActor("user-1", "co-1", "ten-1", Set.of("MANAGER"));
     }
 
     private static final class RecordingOwnerLookup implements OwnerLookupPort {

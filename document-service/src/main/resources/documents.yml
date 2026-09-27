@@ -1,21 +1,29 @@
 documents:
-  product-default: ${DOCUMENTS_PRODUCT_DEFAULT:myproperty}
+  product-default: ${DOCUMENTS_PRODUCT_DEFAULT:platform}
+  write-roles:
+    - ADMIN
+    - MANAGER
+    - OWNER
+    - DELEGATE
+  read-roles:
+    - ADMIN
+    - MANAGER
+    - OWNER
+    - DELEGATE
+    - MEMBER
+  # Generic platform catalog. Host products overlay their own owners/purposes
+  # via config (see application-dev.yml for multi-product examples).
   owners:
-    myproperty:
-      - PROPERTY
-      - AMENITY
+    platform:
       - USER_PROFILE
       - CONVERSATION
-    mycleaning:
-      - SITE
-      - JOB
-      - USER_PROFILE
-      - BEFORE_AFTER
+      - SUBJECT
+      - RESOURCE
+      - WORKSPACE
   purposes:
-    myproperty:
+    platform:
       - COVER
       - GALLERY
-      - FLOOR_PLAN
       - CONTRACT
       - INVOICE
       - RECEIPT
@@ -24,23 +32,14 @@ documents:
       - OTHER
       - AVATAR
       - ID_DOCUMENT
-      - LEASE
-      - INSPECTION
       - NOTICE
       - APPLICATION
-      - INCOME
-      - COI
       - CHAT_ATTACHMENT
       - SIGNATURE
-      - MINUTES
-      - EVICTION
-    mycleaning:
-      - BEFORE_PHOTO
-      - AFTER_PHOTO
-      - AVATAR
+      - ATTACHMENT
   storage:
     provider: ${DOCUMENTS_STORAGE_PROVIDER:memory}
-    bucket: ${DOCUMENTS_BUCKET:property-docs}
+    bucket: ${DOCUMENTS_BUCKET:platform-docs}
     region: ${DOCUMENTS_S3_REGION:us-east-1}
     endpoint: ${DOCUMENTS_S3_ENDPOINT:}
     access-key: ${DOCUMENTS_S3_ACCESS_KEY:}

@@ -13,7 +13,7 @@
 
     <artifactId>document-core</artifactId>
     <name>Document Core</name>
-    <description>Library-mode document bounded context. Importable by MyProperty and sibling products.</description>
+    <description>Library-mode document bounded context. Domain-free library core for dual-mode reuse across host products.</description>
 
     <dependencies>
         <dependency>

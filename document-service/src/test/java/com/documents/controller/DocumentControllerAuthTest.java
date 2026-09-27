@@ -66,8 +66,10 @@ class DocumentControllerAuthTest {
                                 "INSPECTION", "NOTICE", "APPLICATION", "INCOME", "COI",
                                 "CHAT_ATTACHMENT", "SIGNATURE", "MINUTES", "EVICTION"),
                         "mycleaning", List.of("BEFORE_PHOTO", "AFTER_PHOTO", "AVATAR")),
+                null,
+                null,
                 new DocumentsProperties.Storage(
-                        "memory", "property-docs", "us-east-1", null, null, null, true, "docs",
+                        "memory", "platform-docs", "us-east-1", null, null, null, true, "docs",
                         Duration.ofMinutes(15)),
                 new DocumentsProperties.OwnerLookup(false),
                 new DocumentsProperties.Http(100));
