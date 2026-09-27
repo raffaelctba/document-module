@@ -10,6 +10,9 @@ import com.documents.application.service.DocumentAppService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.Collection;
+import java.util.List;
+
 public class DocumentsApiAdapter implements DocumentsApi {
 
     private final DocumentAppService documents;
@@ -67,5 +70,15 @@ public class DocumentsApiAdapter implements DocumentsApi {
     @Override
     public byte[] contentBytes(String documentId, DocumentActor actor) {
         return documents.contentBytes(documentId, actor);
+    }
+
+    @Override
+    public List<DocumentResponseDto> listByIds(Collection<String> ids, DocumentActor actor) {
+        return documents.listByIds(ids, actor);
+    }
+
+    @Override
+    public int purgeDeleted(DocumentActor actor, int limit) {
+        return documents.purgeDeleted(actor, limit);
     }
 }

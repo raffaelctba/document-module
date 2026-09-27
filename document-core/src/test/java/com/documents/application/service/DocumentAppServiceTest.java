@@ -21,10 +21,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.access.AccessDeniedException;
+import com.documents.api.exception.AccessDeniedException;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -133,7 +134,7 @@ class DocumentAppServiceTest {
         assertEquals("CONVERSATION", response.ownerType());
         assertEquals("CHAT_ATTACHMENT", response.purpose());
 
-        DocumentResponseDto lease = service.create(new CreateDocumentRequestDto(
+        DocumentResponseDto first = service.create(new CreateDocumentRequestDto(
                 "PROPERTY", "prop-123", "LEASE", "myproperty",
                 "lease.pdf", "application/pdf", 20L, Set.of()), manager());
         assertEquals("LEASE", lease.purpose());
@@ -279,15 +280,19 @@ class DocumentAppServiceTest {
 
     @Test
     void ownerLookupRejectsMissingOwnerWhenEnabled() {
+        DocumentsProperties base = DocumentDomainServiceTest.properties();
         DocumentsProperties properties = new DocumentsProperties(
-                DocumentDomainServiceTest.properties().productDefault(),
-                DocumentDomainServiceTest.properties().owners(),
-                DocumentDomainServiceTest.properties().purposes(),
-                DocumentDomainServiceTest.properties().writeRoles(),
-                DocumentDomainServiceTest.properties().readRoles(),
-                DocumentDomainServiceTest.properties().storage(),
+                base.productDefault(),
+                base.owners(),
+                base.purposes(),
+                base.writeRoles(),
+                base.readRoles(),
+                base.allowedContentTypes(),
+                base.maxSizeBytes(),
+                base.softDeleteRetention(),
+                base.storage(),
                 new DocumentsProperties.OwnerLookup(true),
-                DocumentDomainServiceTest.properties().http());
+                base.http());
         service = new DocumentAppService(
                 documents, storage, ownerLookup, () -> NOW, new DocumentDomainService(properties), properties);
 
@@ -301,15 +306,19 @@ class DocumentAppServiceTest {
 
     @Test
     void ownerLookupRejectsWrongTenant() {
+        DocumentsProperties base = DocumentDomainServiceTest.properties();
         DocumentsProperties properties = new DocumentsProperties(
-                DocumentDomainServiceTest.properties().productDefault(),
-                DocumentDomainServiceTest.properties().owners(),
-                DocumentDomainServiceTest.properties().purposes(),
-                DocumentDomainServiceTest.properties().writeRoles(),
-                DocumentDomainServiceTest.properties().readRoles(),
-                DocumentDomainServiceTest.properties().storage(),
+                base.productDefault(),
+                base.owners(),
+                base.purposes(),
+                base.writeRoles(),
+                base.readRoles(),
+                base.allowedContentTypes(),
+                base.maxSizeBytes(),
+                base.softDeleteRetention(),
+                base.storage(),
                 new DocumentsProperties.OwnerLookup(true),
-                DocumentDomainServiceTest.properties().http());
+                base.http());
         service = new DocumentAppService(
                 documents, storage, ownerLookup, () -> NOW, new DocumentDomainService(properties), properties);
         ownerLookup.records.put("PROPERTY/prop-123", new OwnerLookupPort.OwnerRecord("other-tenant", "co-1"));
@@ -334,6 +343,7 @@ class DocumentAppServiceTest {
         }
     }
 
+
     private static final class InMemoryDocuments implements DocumentRepositoryPort {
         private final Map<String, Document> byId = new ConcurrentHashMap<>();
 
@@ -346,6 +356,20 @@ class DocumentAppServiceTest {
         @Override
         public Optional<Document> findById(String id) {
             return Optional.ofNullable(byId.get(id));
+        }
+
+        @Override
+        public Optional<Document> findByIdAndTenantId(String id, String tenantId) {
+            return findById(id).filter(d -> tenantId.equals(d.tenantId()));
+        }
+
+        @Override
+        public Optional<Document> findByTenantIdAndIdempotencyKey(String tenantId, String idempotencyKey) {
+            return byId.values().stream()
+                    .filter(d -> tenantId.equals(d.tenantId())
+                            && idempotencyKey != null
+                            && idempotencyKey.equals(d.idempotencyKey()))
+                    .findFirst();
         }
 
         @Override
@@ -381,6 +405,28 @@ class DocumentAppServiceTest {
             int end = Math.min(start + pageable.getPageSize(), matches.size());
             List<Document> slice = start >= matches.size() ? List.of() : matches.subList(start, end);
             return new PageImpl<>(new ArrayList<>(slice), pageable, matches.size());
+        }
+
+        @Override
+        public List<Document> findByIdsAndTenantId(Collection<String> ids, String tenantId) {
+            return ids.stream()
+                    .map(byId::get)
+                    .filter(d -> d != null && tenantId.equals(d.tenantId()) && !d.deleted())
+                    .toList();
+        }
+
+        @Override
+        public List<Document> findDeletedBefore(String tenantId, Instant deletedBefore, int limit) {
+            return byId.values().stream()
+                    .filter(d -> tenantId.equals(d.tenantId()))
+                    .filter(d -> d.deletedAt() != null && d.deletedAt().isBefore(deletedBefore))
+                    .limit(limit)
+                    .toList();
+        }
+
+        @Override
+        public void hardDelete(String id) {
+            byId.remove(id);
         }
     }
 }

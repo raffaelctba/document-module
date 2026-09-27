@@ -4,9 +4,9 @@ import com.documents.api.DocumentsApi;
 import com.documents.api.dto.CompleteDocumentRequestDto;
 import com.documents.api.dto.CreateDocumentRequestDto;
 import com.documents.api.dto.DocumentActor;
+import com.documents.api.dto.DocumentActors;
 import com.documents.api.dto.DocumentResponseDto;
 import com.documents.api.dto.UpdateDocumentRequestDto;
-import com.documents.config.DocumentsProperties;
 import com.myproperty.platform.security.IdentityContext;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -25,6 +25,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/documents")
@@ -32,11 +35,9 @@ import java.net.URI;
 public class DocumentController {
 
     private final DocumentsApi documentsApi;
-    private final DocumentsProperties properties;
 
-    public DocumentController(DocumentsApi documentsApi, DocumentsProperties properties) {
+    public DocumentController(DocumentsApi documentsApi) {
         this.documentsApi = documentsApi;
-        this.properties = properties;
     }
 
     @PostMapping
@@ -61,6 +62,12 @@ public class DocumentController {
             @RequestParam(required = false, defaultValue = "false") boolean includeVersions,
             @PageableDefault(size = 50) Pageable pageable) {
         return documentsApi.list(ownerType, ownerId, purpose, product, includeVersions, pageable, actor());
+    }
+
+    @PostMapping("/batch")
+    public List<DocumentResponseDto> listByIds(@RequestBody Map<String, List<String>> body) {
+        List<String> ids = body == null ? List.of() : body.getOrDefault("ids", List.of());
+        return documentsApi.listByIds(ids, actor());
     }
 
     @PostMapping("/{documentId}/complete")
@@ -93,12 +100,20 @@ public class DocumentController {
         return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(url)).build();
     }
 
+    @PostMapping("/jobs/purge-deleted")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    public Map<String, Integer> purgeDeleted(
+            @RequestParam(required = false, defaultValue = "100") int limit) {
+        int purged = documentsApi.purgeDeleted(actor(), limit);
+        return Map.of("purged", purged);
+    }
+
     private DocumentActor actor() {
         IdentityContext identity = IdentityContext.require();
-        String tenantId = identity.tenantId();
-        if (tenantId == null || tenantId.isBlank()) {
-            tenantId = properties.productDefault();
-        }
-        return new DocumentActor(identity.userId(), identity.companyId(), tenantId, identity.roles());
+        return DocumentActors.require(
+                identity.userId(),
+                identity.companyId(),
+                identity.tenantId(),
+                identity.roles() == null ? Set.of() : identity.roles());
     }
 }

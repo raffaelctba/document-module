@@ -1,5 +1,6 @@
 package com.documents.config;
 
+import com.documents.api.DocumentAccessPort;
 import com.documents.api.DocumentsApi;
 import com.documents.application.DocumentsApiAdapter;
 import com.myproperty.platform.common.time.ClockPort;
@@ -19,7 +20,8 @@ import org.springframework.context.annotation.Configuration;
         "com.documents.infrastructure.persistence.repository",
         "com.documents.infrastructure.storage",
         "com.documents.infrastructure.owner",
-        "com.documents.infrastructure.clock"
+        "com.documents.infrastructure.clock",
+        "com.documents.infrastructure.access"
 })
 public class DocumentModuleConfig {
 
@@ -34,8 +36,10 @@ public class DocumentModuleConfig {
                                                  OwnerLookupPort ownerLookup,
                                                  ClockPort clock,
                                                  DocumentDomainService domain,
-                                                 DocumentsProperties properties) {
-        return new DocumentAppService(documents, objectStorage, ownerLookup, clock, domain, properties);
+                                                 DocumentsProperties properties,
+                                                 DocumentAccessPort access,
+                                                 org.springframework.context.ApplicationEventPublisher events) {
+        return new DocumentAppService(documents, objectStorage, ownerLookup, clock, domain, properties, access, events);
     }
 
     @Bean

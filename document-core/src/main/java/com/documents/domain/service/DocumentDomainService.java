@@ -55,6 +55,28 @@ public class DocumentDomainService {
                 + "/" + sanitize(documentId);
     }
 
+    public void assertContentAllowed(String contentType, Long sizeBytes) {
+        if (sizeBytes != null && properties.maxSizeBytes() != null
+                && sizeBytes > properties.maxSizeBytes()) {
+            throw new IllegalArgumentException(
+                    "sizeBytes exceeds max of " + properties.maxSizeBytes());
+        }
+        if (contentType == null || contentType.isBlank()) {
+            return;
+        }
+        List<String> allowed = properties.allowedContentTypes();
+        if (allowed == null || allowed.isEmpty()) {
+            return;
+        }
+        String type = contentType.trim().toLowerCase(Locale.ROOT);
+        String base = type.contains(";") ? type.substring(0, type.indexOf(';')).trim() : type;
+        boolean ok = allowed.stream().anyMatch(a -> a.equals(base) || a.equals(type)
+                || (a.endsWith("/*") && base.startsWith(a.substring(0, a.length() - 1))));
+        if (!ok) {
+            throw new IllegalArgumentException("contentType not allowed: " + contentType);
+        }
+    }
+
     public String sanitizeFilename(String filename) {
         if (filename == null || filename.isBlank()) {
             throw new IllegalArgumentException("filename is required");

@@ -29,6 +29,8 @@ public class Document {
     private final Instant createdAt;
     private Instant deletedAt;
 
+    private final String idempotencyKey;
+
     private Document(Builder builder) {
         this.id = builder.id != null ? builder.id : UUID.randomUUID().toString();
         this.product = requireNonBlank(builder.product, "product is required").toLowerCase(Locale.ROOT);
@@ -53,6 +55,7 @@ public class Document {
         this.createdBy = requireNonBlank(builder.createdBy, "createdBy is required");
         this.createdAt = builder.createdAt != null ? builder.createdAt : Instant.now();
         this.deletedAt = builder.deletedAt;
+        this.idempotencyKey = builder.idempotencyKey;
     }
 
     public static Document create(String product,
@@ -224,6 +227,10 @@ public class Document {
         return deletedAt;
     }
 
+    public String idempotencyKey() {
+        return idempotencyKey;
+    }
+
     private void assertActive() {
         if (deleted()) {
             throw new IllegalStateException("Document is deleted: " + id);
@@ -276,6 +283,7 @@ public class Document {
         private String createdBy;
         private Instant createdAt;
         private Instant deletedAt;
+        private String idempotencyKey;
 
         private Builder() {
         }
@@ -367,6 +375,11 @@ public class Document {
 
         public Builder withDeletedAt(Instant deletedAt) {
             this.deletedAt = deletedAt;
+            return this;
+        }
+
+        public Builder withIdempotencyKey(String idempotencyKey) {
+            this.idempotencyKey = idempotencyKey;
             return this;
         }
 

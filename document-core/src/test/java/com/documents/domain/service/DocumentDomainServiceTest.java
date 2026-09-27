@@ -100,6 +100,9 @@ public class DocumentDomainServiceTest {
                         "mycleaning", List.of("BEFORE_PHOTO", "AFTER_PHOTO", "AVATAR")),
                 null,
                 null,
+                List.of(),
+                null,
+                null,
                 new DocumentsProperties.Storage(
                         "memory", "platform-docs", "us-east-1", null, null, null, true, "docs",
                         Duration.ofMinutes(15)),

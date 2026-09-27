@@ -18,6 +18,9 @@ public record DocumentsProperties(
         Map<String, List<String>> purposes,
         List<String> writeRoles,
         List<String> readRoles,
+        List<String> allowedContentTypes,
+        Long maxSizeBytes,
+        Duration softDeleteRetention,
         Storage storage,
         OwnerLookup ownerLookup,
         Http http) {
@@ -32,6 +35,20 @@ public record DocumentsProperties(
         purposes = normalizeAllowlist(purposes);
         writeRoles = normalizeRoleList(writeRoles, List.of("ADMIN", "MANAGER", "OWNER", "DELEGATE"));
         readRoles = normalizeRoleList(readRoles, List.of("ADMIN", "MANAGER", "OWNER", "DELEGATE", "MEMBER"));
+        if (allowedContentTypes == null) {
+            allowedContentTypes = List.of();
+        } else {
+            allowedContentTypes = allowedContentTypes.stream()
+                    .filter(v -> v != null && !v.isBlank())
+                    .map(v -> v.trim().toLowerCase(Locale.ROOT))
+                    .toList();
+        }
+        if (maxSizeBytes != null && maxSizeBytes < 1) {
+            maxSizeBytes = null;
+        }
+        if (softDeleteRetention == null || softDeleteRetention.isNegative() || softDeleteRetention.isZero()) {
+            softDeleteRetention = Duration.ofDays(30);
+        }
         if (storage == null) {
             storage = Storage.defaults();
         }

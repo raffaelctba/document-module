@@ -47,8 +47,13 @@ public class InMemoryObjectStorageAdapter implements ObjectStoragePort {
         return objects.containsKey(storageKey);
     }
 
-    public void remove(String storageKey) {
+    @Override
+    public void delete(String storageKey) {
         objects.remove(storageKey);
+    }
+
+    public void remove(String storageKey) {
+        delete(storageKey);
     }
 
     private static String url(String operation, String storageKey, Instant expiresAt) {

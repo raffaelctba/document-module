@@ -8,8 +8,17 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+
 @Repository
 public interface DocumentJpaRepository extends JpaRepository<DocumentEntity, String> {
+
+    Optional<DocumentEntity> findByIdAndTenantId(String id, String tenantId);
+
+    Optional<DocumentEntity> findByTenantIdAndIdempotencyKey(String tenantId, String idempotencyKey);
 
     @Query("""
             SELECT d FROM DocumentEntity d
@@ -41,4 +50,26 @@ public interface DocumentJpaRepository extends JpaRepository<DocumentEntity, Str
             Pageable pageable);
 
     boolean existsBySupersedesDocumentIdAndDeletedAtIsNull(String supersedesDocumentId);
+
+    @Query("""
+            SELECT d FROM DocumentEntity d
+            WHERE d.tenantId = :tenantId
+              AND d.id IN :ids
+              AND d.deletedAt IS NULL
+            """)
+    List<DocumentEntity> findByIdsAndTenantId(
+            @Param("ids") Collection<String> ids,
+            @Param("tenantId") String tenantId);
+
+    @Query("""
+            SELECT d FROM DocumentEntity d
+            WHERE d.tenantId = :tenantId
+              AND d.deletedAt IS NOT NULL
+              AND d.deletedAt < :deletedBefore
+            ORDER BY d.deletedAt ASC
+            """)
+    List<DocumentEntity> findDeletedBefore(
+            @Param("tenantId") String tenantId,
+            @Param("deletedBefore") Instant deletedBefore,
+            Pageable pageable);
 }

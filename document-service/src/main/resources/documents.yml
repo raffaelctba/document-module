@@ -47,6 +47,10 @@ documents:
     path-style: ${DOCUMENTS_S3_PATH_STYLE:true}
     key-prefix: ${DOCUMENTS_KEY_PREFIX:docs}
     signed-url-ttl: ${DOCUMENTS_SIGNED_URL_TTL:15m}
+  # Empty allowlist = any content type. Example: image/*,application/pdf
+  allowed-content-types: []
+  max-size-bytes: ${DOCUMENTS_MAX_SIZE_BYTES:}
+  soft-delete-retention: ${DOCUMENTS_SOFT_DELETE_RETENTION:30d}
   owner-lookup:
     enabled: ${DOCUMENTS_OWNER_LOOKUP_ENABLED:false}
   http:

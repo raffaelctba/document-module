@@ -8,6 +8,9 @@ import com.documents.api.dto.UpdateDocumentRequestDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.Collection;
+import java.util.List;
+
 /**
  * Published language of the document module. Hosts must depend only on this type
  * and {@code com.documents.api} DTOs/exceptions.
@@ -59,4 +62,10 @@ public interface DocumentsApi {
     String contentUrl(String documentId, DocumentActor actor);
 
     byte[] contentBytes(String documentId, DocumentActor actor);
+
+    List<DocumentResponseDto> listByIds(Collection<String> ids, DocumentActor actor);
+
+    /** Hard-delete soft-deleted docs past retention; returns count purged. */
+    int purgeDeleted(DocumentActor actor, int limit);
 }
+
