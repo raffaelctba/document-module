@@ -9,6 +9,9 @@ import com.documents.application.port.ObjectStoragePort;
 import com.documents.api.OwnerLookupPort;
 import com.documents.application.service.DocumentAppService;
 import com.documents.domain.service.DocumentDomainService;
+import com.documents.infrastructure.access.DefaultDocumentAccess;
+import com.documents.infrastructure.storage.ObjectStorageProcesses;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -20,10 +23,20 @@ import org.springframework.context.annotation.Configuration;
         "com.documents.infrastructure.persistence.repository",
         "com.documents.infrastructure.storage",
         "com.documents.infrastructure.owner",
-        "com.documents.infrastructure.clock",
-        "com.documents.infrastructure.access"
+        "com.documents.infrastructure.clock"
 })
 public class DocumentModuleConfig {
+
+    @Bean
+    @ConditionalOnMissingBean(DocumentAccessPort.class)
+    public DocumentAccessPort documentAccessPort() {
+        return new DefaultDocumentAccess();
+    }
+
+    @Bean
+    public ObjectStoragePort objectStoragePort(DocumentsProperties properties) {
+        return ObjectStorageProcesses.open(properties);
+    }
 
     @Bean
     public DocumentDomainService documentDomainService(DocumentsProperties properties) {

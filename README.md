@@ -15,6 +15,7 @@ Dual-mode, **domain-free** document/attachment platform module.
 - Opaque `ownerType` / `ownerId` + product allowlists
 - `OwnerLookupPort` + `DocumentAccessPort` host SPIs
 - Content type / max size policy
+- Storage processes: `memory`, `filesystem`, `s3` (`documents.storage.provider`)
 - Idempotency key on create
 - Batch `POST /documents/batch`
 - Soft-delete purge job

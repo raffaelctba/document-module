@@ -107,7 +107,8 @@ public record DocumentsProperties(
             String secretKey,
             Boolean pathStyle,
             String keyPrefix,
-            Duration signedUrlTtl) {
+            Duration signedUrlTtl,
+            String directory) {
 
         public Storage {
             if (provider == null || provider.isBlank()) {
@@ -139,11 +140,14 @@ public record DocumentsProperties(
             if (signedUrlTtl == null || signedUrlTtl.isNegative() || signedUrlTtl.isZero()) {
                 signedUrlTtl = Duration.ofMinutes(15);
             }
+            if (directory != null && directory.isBlank()) {
+                directory = null;
+            }
         }
 
         public static Storage defaults() {
             return new Storage("memory", "platform-docs", "us-east-1", null, null, null, true, "docs",
-                    Duration.ofMinutes(15));
+                    Duration.ofMinutes(15), null);
         }
 
         public boolean memory() {

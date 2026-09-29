@@ -137,8 +137,8 @@ class DocumentAppServiceTest {
         DocumentResponseDto first = service.create(new CreateDocumentRequestDto(
                 "PROPERTY", "prop-123", "LEASE", "myproperty",
                 "lease.pdf", "application/pdf", 20L, Set.of()), manager());
-        assertEquals("LEASE", lease.purpose());
-        assertEquals(1, lease.version());
+        assertEquals("LEASE", first.purpose());
+        assertEquals(1, first.version());
     }
 
     @Test

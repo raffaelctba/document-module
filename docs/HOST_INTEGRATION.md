@@ -20,7 +20,21 @@
    - `DocumentAccessPort` — product membership (return true/false/null)
 4. Opaque owners: map host concepts to `ownerType`/`ownerId` only (no lease/property vocabulary in module).
 5. Content policy: `documents.allowed-content-types`, `documents.max-size-bytes`
-6. Purge: `POST /documents/jobs/purge-deleted` per tenant or `purgeDeleted(systemForTenant, limit)`
+6. Storage process (`documents.storage.provider`):
+   - `memory` — in-process bytes (tests and local default)
+   - `filesystem` — directory in `documents.storage.directory`
+   - `s3` — Amazon S3 using `documents.storage.bucket` and `documents.storage.region`
+
+   MyBuilding maps its AWS properties onto that namespace:
+
+   ```yaml
+   aws.s3.bucket: mypropertyappbucket
+   aws.s3.region: us-east-1
+   documents.storage.provider: s3
+   documents.storage.bucket: ${aws.s3.bucket}
+   documents.storage.region: ${aws.s3.region}
+   ```
+7. Purge: `POST /documents/jobs/purge-deleted` per tenant or `purgeDeleted(systemForTenant, limit)`
 
 ## Events
 

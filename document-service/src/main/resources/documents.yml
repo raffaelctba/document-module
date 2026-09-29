@@ -37,6 +37,9 @@ documents:
       - CHAT_ATTACHMENT
       - SIGNATURE
       - ATTACHMENT
+  # Storage process: memory | filesystem | s3. Hosts choose one.
+  # Amazon S3 reads bucket/region from this namespace. A host can map its own
+  # keys, for example bucket: ${aws.s3.bucket}.
   storage:
     provider: ${DOCUMENTS_STORAGE_PROVIDER:memory}
     bucket: ${DOCUMENTS_BUCKET:platform-docs}
@@ -47,6 +50,7 @@ documents:
     path-style: ${DOCUMENTS_S3_PATH_STYLE:true}
     key-prefix: ${DOCUMENTS_KEY_PREFIX:docs}
     signed-url-ttl: ${DOCUMENTS_SIGNED_URL_TTL:15m}
+    directory: ${DOCUMENTS_STORAGE_DIRECTORY:}
   # Empty allowlist = any content type. Example: image/*,application/pdf
   allowed-content-types: []
   max-size-bytes: ${DOCUMENTS_MAX_SIZE_BYTES:}

@@ -73,7 +73,7 @@ class DocumentControllerAuthTest {
                 null,
                 new DocumentsProperties.Storage(
                         "memory", "platform-docs", "us-east-1", null, null, null, true, "docs",
-                        Duration.ofMinutes(15)),
+                        Duration.ofMinutes(15), null),
                 new DocumentsProperties.OwnerLookup(false),
                 new DocumentsProperties.Http(100));
     }

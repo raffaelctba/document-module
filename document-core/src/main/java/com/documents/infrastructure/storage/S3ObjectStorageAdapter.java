@@ -2,8 +2,6 @@ package com.documents.infrastructure.storage;
 
 import com.documents.application.port.ObjectStoragePort;
 import com.documents.config.DocumentsProperties;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -25,8 +23,11 @@ import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
 
-@Component
-@ConditionalOnProperty(prefix = "documents.storage", name = "provider", havingValue = "s3")
+/**
+ * Amazon S3 storage process. Selected when {@code documents.storage.provider=s3}.
+ * Bucket, region, and optional static credentials come from {@code documents.storage}.
+ * Hosts map their own property names (for example {@code aws.s3.bucket}) onto that namespace.
+ */
 public class S3ObjectStorageAdapter implements ObjectStoragePort {
 
     private final DocumentsProperties.Storage storage;
@@ -122,6 +123,18 @@ public class S3ObjectStorageAdapter implements ObjectStoragePort {
         }
     }
 
+    @Override
+    public void delete(String storageKey) {
+        try {
+            client.deleteObject(DeleteObjectRequest.builder()
+                    .bucket(storage.bucket())
+                    .key(storageKey)
+                    .build());
+        } catch (RuntimeException ignored) {
+            // best-effort purge
+        }
+    }
+
     private static S3Client buildClient(DocumentsProperties.Storage storage) {
         S3ClientBuilder builder = S3Client.builder()
                 .region(Region.of(storage.region()))
@@ -155,21 +168,6 @@ public class S3ObjectStorageAdapter implements ObjectStoragePort {
         if (storage.accessKey() != null && storage.secretKey() != null) {
             builder.credentialsProvider(StaticCredentialsProvider.create(
                     AwsBasicCredentials.create(storage.accessKey(), storage.secretKey())));
-        }
-    }
-
-    @Override
-    public void delete(String storageKey) {
-        try {
-            client.deleteObject(DeleteObjectRequest.builder()
-                    .bucket(storage.bucket())
-                    .key(storageKey)
-                    .build());
-        } catch (RuntimeException ignored) {
-            // best-effort purge
-        }
-    } catch (RuntimeException ex) {
-            // best-effort purge
         }
     }
 }

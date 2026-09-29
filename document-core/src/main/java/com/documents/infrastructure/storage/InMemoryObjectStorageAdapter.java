@@ -1,16 +1,16 @@
 package com.documents.infrastructure.storage;
 
 import com.documents.application.port.ObjectStoragePort;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Component
-@ConditionalOnProperty(prefix = "documents.storage", name = "provider", havingValue = "memory", matchIfMissing = true)
+/**
+ * In-process storage process. Selected when {@code documents.storage.provider=memory}
+ * (also the default when the provider is omitted).
+ */
 public class InMemoryObjectStorageAdapter implements ObjectStoragePort {
 
     private final Map<String, byte[]> objects = new ConcurrentHashMap<>();
