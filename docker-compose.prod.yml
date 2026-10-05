@@ -1,0 +1,21 @@
+# PRD overlay — joins the shared mybuilding-prd network (pm-backend, otp-service, api-gateway, Postgres/Redis).
+name: document-prd
+services:
+  document-module:
+    image: ghcr.io/${GHCR_OWNER:-raffaelctba}/document-service:${IMAGE_TAG:-latest}
+    ports:
+      - "127.0.0.1:8185:8085"
+    environment:
+      SPRING_PROFILES_ACTIVE: prd
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - module-network
+
+networks:
+  module-network:
+    external: true
+    name: ${MODULE_NETWORK:-mybuilding-prd}

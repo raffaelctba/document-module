@@ -1,0 +1,37 @@
+# Base compose — environment-specific overrides in docker-compose.prod.yml / docker-compose.test.yml.
+# Mirrors otp-module. CI (.github/workflows/deploy.yml) copies this file + one overlay to
+# /opt/prd/document (main→PRD) or /opt/dev/document (test→TEST) and writes .env.
+#
+# The compose service name `document-module` is the docker-DNS name api-gateway routes to
+# (`http://document-module:8085`) on the shared network.
+services:
+  document-module:
+    environment:
+      SPRING_DATASOURCE_URL: ${DATABASE_URL:-}
+      SPRING_DATASOURCE_USERNAME: ${DATABASE_USERNAME:-}
+      SPRING_DATASOURCE_PASSWORD: ${DATABASE_PASSWORD:-}
+      GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:-}
+      SPRING_DATA_REDIS_HOST: ${REDIS_HOST:-}
+      SPRING_DATA_REDIS_PORT: ${REDIS_PORT:-6379}
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      SPRING_DATA_REDIS_DATABASE: ${REDIS_DATABASE:-12}
+      DOCUMENTS_STORAGE_PROVIDER: ${DOCUMENTS_STORAGE_PROVIDER:-}
+      DOCUMENTS_BUCKET: ${DOCUMENTS_BUCKET:-}
+      DOCUMENTS_KEY_PREFIX: ${DOCUMENTS_KEY_PREFIX:-}
+      DOCUMENTS_S3_REGION: ${DOCUMENTS_S3_REGION:-}
+      DOCUMENTS_S3_ENDPOINT: ${DOCUMENTS_S3_ENDPOINT:-}
+      DOCUMENTS_S3_ACCESS_KEY: ${DOCUMENTS_S3_ACCESS_KEY:-}
+      DOCUMENTS_S3_SECRET_KEY: ${DOCUMENTS_S3_SECRET_KEY:-}
+      JAVA_OPTS: ${JAVA_OPTS:--Xms128m -Xmx384m}
+      # Flyway is HOST-OWNED for schema `documents` (hybrid plan, approved 2026-10-05):
+      # pm-backend keeps applying this module's migrations until ownership is transferred
+      # in a dedicated PR. Never enable both — exactly one Flyway writer per schema.
+      SPRING_FLYWAY_ENABLED: "false"
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8085/actuator/health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped

@@ -1,5 +1,10 @@
 # Test environment — docker service on mybuilding-test, reached via api-gateway.
 spring:
+  # Flyway is HOST-OWNED for schema `documents` (hybrid plan, 2026-10-05): pm-backend applies these
+  # migrations on the shared database until a dedicated ownership-transfer PR. Exactly one
+  # Flyway writer per schema — do not enable here while pm-backend still migrates `documents`.
+  flyway:
+    enabled: ${SPRING_FLYWAY_ENABLED:false}
   application:
     name: document-module-test
   datasource:

@@ -10,6 +10,7 @@ import com.documents.api.OwnerLookupPort;
 import com.documents.application.service.DocumentAppService;
 import com.documents.domain.service.DocumentDomainService;
 import com.documents.infrastructure.access.DefaultDocumentAccess;
+import com.documents.infrastructure.owner.NoOpOwnerLookup;
 import com.documents.infrastructure.storage.ObjectStorageProcesses;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -22,10 +23,16 @@ import org.springframework.context.annotation.Configuration;
 @ComponentScan(basePackages = {
         "com.documents.infrastructure.persistence.repository",
         "com.documents.infrastructure.storage",
-        "com.documents.infrastructure.owner",
         "com.documents.infrastructure.clock"
 })
 public class DocumentModuleConfig {
+
+    /** Fallback when the host (or service) supplies no owner lookup adapter. */
+    @Bean
+    @ConditionalOnMissingBean(OwnerLookupPort.class)
+    public OwnerLookupPort noOpOwnerLookup() {
+        return new NoOpOwnerLookup();
+    }
 
     @Bean
     @ConditionalOnMissingBean(DocumentAccessPort.class)

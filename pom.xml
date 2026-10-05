@@ -14,7 +14,7 @@
 
     <groupId>com.myproperty</groupId>
     <artifactId>document-module</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <packaging>pom</packaging>
     <name>Document Module</name>
     <description>Dual-mode aggregator: document-core library and document-service process.</description>
@@ -32,6 +32,17 @@
         <testcontainers.version>1.21.4</testcontainers.version>
         <archunit.version>1.4.1</archunit.version>
     </properties>
+
+    <!-- platform-sdk (platform-bom, platform-security, …) is published to the PlatformModules
+         GitHub Packages registry (server id `github`; credentials come from settings.xml /
+         the Docker BuildKit secret, never from this repo). Needed for standalone builds
+         (Dockerfile / CI) outside the PlatformApps monorepo. -->
+    <repositories>
+        <repository>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/raffaelctba/PlatformModules</url>
+        </repository>
+    </repositories>
 
     <dependencyManagement>
         <dependencies>
