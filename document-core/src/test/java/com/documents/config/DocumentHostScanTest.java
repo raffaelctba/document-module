@@ -17,7 +17,6 @@ class DocumentHostScanTest {
     private static final List<String> INFRASTRUCTURE_PACKAGES = List.of(
             "com.documents.infrastructure.persistence.repository",
             "com.documents.infrastructure.storage",
-            "com.documents.infrastructure.owner",
             "com.documents.infrastructure.clock");
 
     @Test

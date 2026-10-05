@@ -1,0 +1,239 @@
+name: Deploy document-service
+
+# Mirrors otp-module's deploy.yml: build multi-arch image → GHCR → copy compose + .env to the
+# shared EC2 host → docker compose pull/up --wait → loopback health gate.
+#
+#   test → TEST /opt/dev/document  127.0.0.1:9185  network mybuilding-test
+#   main → PRD  /opt/prd/document  127.0.0.1:8185  network mybuilding-prd
+#          PRD deploy only runs when repository variable EC2_PRD_ENABLED == 'true'
+#          (image is still built + pushed). Prove TEST first.
+#
+# Flyway: HOST-OWNED. The container runs with SPRING_FLYWAY_ENABLED=false; pm-backend migrates
+# schema `documents`. Ownership transfer is a separate, one-way PR.
+#
+# Repository secret (build):
+#   secret   PLATFORM_MODULES_PACKAGES_TOKEN  PAT with read:packages (platform-sdk / BOM from
+#            raffaelctba/PlatformModules GitHub Packages). Passed as a BuildKit secret — never in a layer.
+#   variable PLATFORM_MODULES_PACKAGES_USERNAME  optional (defaults to workflow actor)
+# Per GitHub Environment (PRD / TEST):
+#   secret   EC2_SSH_KEY   (required)
+#   variable EC2_HOST, EC2_USER   (required)
+#   secret   DATABASE_URL  (required)
+#   secret   DATABASE_USERNAME  (required)
+#   secret   DATABASE_PASSWORD  (required)
+#   secret   GATEWAY_INTERNAL_SECRET  (required)
+#   var      REDIS_HOST  (required)
+#   var      REDIS_PORT
+#   secret   REDIS_PASSWORD  (required)
+#   var      REDIS_DATABASE
+#   var      DOCUMENTS_STORAGE_PROVIDER  (required)
+#   var      DOCUMENTS_BUCKET
+#   var      DOCUMENTS_KEY_PREFIX
+#   var      DOCUMENTS_S3_REGION
+#   var      DOCUMENTS_S3_ENDPOINT
+#   secret   DOCUMENTS_S3_ACCESS_KEY
+#   secret   DOCUMENTS_S3_SECRET_KEY
+
+on:
+  push:
+    branches: [main, test]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag to deploy (optional; default latest/test-latest)'
+        required: false
+
+concurrency:
+  group: document-service-deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/document-service
+
+jobs:
+  build_and_push:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    outputs:
+      image_tag: ${{ steps.tag.outputs.tag }}
+      image_ref: ${{ steps.tag.outputs.ref }}
+    env:
+      IMAGE_TAG: ${{ github.ref_name == 'main' && 'latest' || 'test-latest' }}
+      GH_PACKAGES_USERNAME: ${{ vars.PLATFORM_MODULES_PACKAGES_USERNAME || github.actor }}
+      GH_PACKAGES_TOKEN: ${{ secrets.PLATFORM_MODULES_PACKAGES_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Maven settings for GitHub Packages (BuildKit secret)
+        run: |
+          [ -n "$GH_PACKAGES_TOKEN" ] || { echo "::error::Missing secret PLATFORM_MODULES_PACKAGES_TOKEN (read:packages)"; exit 1; }
+          umask 077
+          cat > "$RUNNER_TEMP/maven-settings.xml" <<XML
+          <settings xmlns="http://maven.apache.org/SETTINGS/1.2.0">
+            <servers>
+              <server>
+                <id>github</id>
+                <username>${GH_PACKAGES_USERNAME}</username>
+                <password>${GH_PACKAGES_TOKEN}</password>
+              </server>
+            </servers>
+          </settings>
+          XML
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve image tag
+        id: tag
+        run: |
+          TAG="${{ github.event.inputs.image_tag }}"
+          if [ -z "$TAG" ]; then TAG="${IMAGE_TAG}"; fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "ref=${REGISTRY}/${IMAGE_NAME}:$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          secret-files: |
+            maven_settings=${{ runner.temp }}/maven-settings.xml
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name == 'main' && 'sha' || 'test-sha' }}-${{ github.sha }}
+
+      - name: Remove Maven settings
+        if: always()
+        run: rm -f "$RUNNER_TEMP/maven-settings.xml"
+
+  deploy:
+    needs: build_and_push
+    if: github.ref_name != 'main' || vars.EC2_PRD_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'PRD' || 'TEST' }}
+    permissions:
+      packages: read
+      contents: read
+    env:
+      DEPLOY_DIR: ${{ github.ref_name == 'main' && '/opt/prd/document' || '/opt/dev/document' }}
+      HEALTH_PORT: ${{ github.ref_name == 'main' && '8185' || '9185' }}
+      COMPOSE_OVERRIDE: ${{ github.ref_name == 'main' && 'docker-compose.prod.yml' || 'docker-compose.test.yml' }}
+      MODULE_NETWORK: ${{ github.ref_name == 'main' && 'mybuilding-prd' || 'mybuilding-test' }}
+      IMAGE_REF: ${{ needs.build_and_push.outputs.image_ref }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Write .env and deploy to EC2
+        env:
+          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_USER: ${{ vars.EC2_USER }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RESOLVED_TAG: ${{ needs.build_and_push.outputs.image_tag }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_USERNAME: ${{ secrets.DATABASE_USERNAME }}
+          DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+          GATEWAY_INTERNAL_SECRET: ${{ secrets.GATEWAY_INTERNAL_SECRET }}
+          REDIS_HOST: ${{ vars.REDIS_HOST }}
+          REDIS_PORT: ${{ vars.REDIS_PORT }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          REDIS_DATABASE: ${{ vars.REDIS_DATABASE }}
+          DOCUMENTS_STORAGE_PROVIDER: ${{ vars.DOCUMENTS_STORAGE_PROVIDER }}
+          DOCUMENTS_BUCKET: ${{ vars.DOCUMENTS_BUCKET }}
+          DOCUMENTS_KEY_PREFIX: ${{ vars.DOCUMENTS_KEY_PREFIX }}
+          DOCUMENTS_S3_REGION: ${{ vars.DOCUMENTS_S3_REGION }}
+          DOCUMENTS_S3_ENDPOINT: ${{ vars.DOCUMENTS_S3_ENDPOINT }}
+          DOCUMENTS_S3_ACCESS_KEY: ${{ secrets.DOCUMENTS_S3_ACCESS_KEY }}
+          DOCUMENTS_S3_SECRET_KEY: ${{ secrets.DOCUMENTS_S3_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+          missing=""
+          for v in EC2_HOST EC2_USER SSH_KEY DATABASE_URL DATABASE_USERNAME DATABASE_PASSWORD GATEWAY_INTERNAL_SECRET REDIS_HOST REDIS_PASSWORD DOCUMENTS_STORAGE_PROVIDER; do
+            [ -n "${!v:-}" ] || missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then echo "::error::Missing required secrets/vars in this environment:$missing"; exit 1; fi
+          if [ "$GATEWAY_INTERNAL_SECRET" = "dev-gateway-internal-secret" ]; then
+            echo "::error::GATEWAY_INTERNAL_SECRET must not be the dev default"; exit 1
+          fi
+
+          umask 077
+          {
+            printf 'IMAGE_TAG=%s\n' "$RESOLVED_TAG"
+            printf 'GHCR_OWNER=%s\n' "${{ github.repository_owner }}"
+            printf 'MODULE_NETWORK=%s\n' "$MODULE_NETWORK"
+            printf 'DATABASE_URL=%s\n' "$DATABASE_URL"
+            printf 'DATABASE_USERNAME=%s\n' "$DATABASE_USERNAME"
+            printf 'DATABASE_PASSWORD=%s\n' "$DATABASE_PASSWORD"
+            printf 'GATEWAY_INTERNAL_SECRET=%s\n' "$GATEWAY_INTERNAL_SECRET"
+            printf 'REDIS_HOST=%s\n' "$REDIS_HOST"
+            printf 'REDIS_PORT=%s\n' "${REDIS_PORT:-6379}"
+            printf 'REDIS_PASSWORD=%s\n' "$REDIS_PASSWORD"
+            printf 'REDIS_DATABASE=%s\n' "${REDIS_DATABASE:-12}"
+            printf 'DOCUMENTS_STORAGE_PROVIDER=%s\n' "$DOCUMENTS_STORAGE_PROVIDER"
+            printf 'DOCUMENTS_BUCKET=%s\n' "$DOCUMENTS_BUCKET"
+            printf 'DOCUMENTS_KEY_PREFIX=%s\n' "$DOCUMENTS_KEY_PREFIX"
+            printf 'DOCUMENTS_S3_REGION=%s\n' "$DOCUMENTS_S3_REGION"
+            printf 'DOCUMENTS_S3_ENDPOINT=%s\n' "$DOCUMENTS_S3_ENDPOINT"
+            printf 'DOCUMENTS_S3_ACCESS_KEY=%s\n' "$DOCUMENTS_S3_ACCESS_KEY"
+            printf 'DOCUMENTS_S3_SECRET_KEY=%s\n' "$DOCUMENTS_S3_SECRET_KEY"
+          } > /tmp/module.env
+
+          echo "$SSH_KEY" > /tmp/ec2_key.pem
+          chmod 600 /tmp/ec2_key.pem
+          SSH="ssh -i /tmp/ec2_key.pem -o StrictHostKeyChecking=no"
+
+          $SSH $EC2_USER@$EC2_HOST "mkdir -p $DEPLOY_DIR && docker network inspect $MODULE_NETWORK >/dev/null"
+          scp -i /tmp/ec2_key.pem -o StrictHostKeyChecking=no /tmp/module.env $EC2_USER@$EC2_HOST:$DEPLOY_DIR/.env
+          rsync -az -e "$SSH" docker-compose.yml $COMPOSE_OVERRIDE $EC2_USER@$EC2_HOST:$DEPLOY_DIR/
+
+          printf '%s' "$GH_TOKEN" | $SSH $EC2_USER@$EC2_HOST "docker login ghcr.io -u ${{ github.actor }} --password-stdin"
+
+          $SSH $EC2_USER@$EC2_HOST "
+            set -e
+            cd $DEPLOY_DIR
+            chmod 600 .env
+            docker compose --env-file .env -f docker-compose.yml -f $COMPOSE_OVERRIDE pull &&
+            docker compose --env-file .env -f docker-compose.yml -f $COMPOSE_OVERRIDE up -d --remove-orphans --wait --wait-timeout 300
+          "
+          rm -f /tmp/ec2_key.pem /tmp/module.env
+
+      - name: Health check
+        env:
+          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_USER: ${{ vars.EC2_USER }}
+        run: |
+          echo "$SSH_KEY" > /tmp/ec2_key.pem
+          chmod 600 /tmp/ec2_key.pem
+          for i in 1 2 3 4 5; do
+            HEALTH=$(ssh -i /tmp/ec2_key.pem -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST \
+              "curl -fsS http://127.0.0.1:$HEALTH_PORT/actuator/health || echo FAIL")
+            echo "Attempt $i: ${HEALTH:0:400}"
+            if [ "$(echo "$HEALTH" | jq -r '.status // empty' 2>/dev/null)" = "UP" ]; then
+              echo "document-service healthy"; rm -f /tmp/ec2_key.pem; exit 0
+            fi
+            [ "$i" -lt 5 ] && sleep 20
+          done
+          ssh -i /tmp/ec2_key.pem -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST \
+            "docker compose --env-file $DEPLOY_DIR/.env -f $DEPLOY_DIR/docker-compose.yml -f $DEPLOY_DIR/$COMPOSE_OVERRIDE logs --tail 150 document-module" || true
+          rm -f /tmp/ec2_key.pem
+          echo "::error::document-service failed health check"; exit 1
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "Environment : ${{ github.ref_name == 'main' && 'PRD' || 'TEST' }}"
+          echo "Image       : ${{ env.IMAGE_REF }}"
+          echo "Health      : 127.0.0.1:${{ env.HEALTH_PORT }}"
