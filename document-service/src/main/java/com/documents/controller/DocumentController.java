@@ -93,6 +93,12 @@ public class DocumentController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping(value = "/{documentId}/content/bytes", produces = org.springframework.http.MediaType.APPLICATION_OCTET_STREAM_VALUE)
+    @PreAuthorize("@documentAccess.canRead(authentication, #documentId)")
+    public byte[] contentBytes(@PathVariable String documentId) {
+        return documentsApi.contentBytes(documentId, actor());
+    }
+
     @GetMapping("/{documentId}/content")
     @PreAuthorize("@documentAccess.canRead(authentication, #documentId)")
     public ResponseEntity<Void> content(@PathVariable String documentId) {
