@@ -5,12 +5,15 @@ documents:
     - MANAGER
     - OWNER
     - DELEGATE
+    - HOST_DOCUMENT_WRITE
   read-roles:
     - ADMIN
     - MANAGER
     - OWNER
     - DELEGATE
     - MEMBER
+    - HOST_DOCUMENT_READ
+    - HOST_DOCUMENT_WRITE
   # Generic platform catalog. Host products overlay their own owners/purposes
   # via config (see application-dev.yml for multi-product examples).
   owners:
@@ -42,13 +45,13 @@ documents:
   # keys, for example bucket: ${aws.s3.bucket}.
   storage:
     provider: ${DOCUMENTS_STORAGE_PROVIDER:memory}
-    bucket: ${DOCUMENTS_BUCKET:platform-docs}
+    bucket: ${DOCUMENTS_BUCKET:mypropertyappbucket}
     region: ${DOCUMENTS_S3_REGION:us-east-1}
     endpoint: ${DOCUMENTS_S3_ENDPOINT:}
     access-key: ${DOCUMENTS_S3_ACCESS_KEY:}
     secret-key: ${DOCUMENTS_S3_SECRET_KEY:}
     path-style: ${DOCUMENTS_S3_PATH_STYLE:true}
-    key-prefix: ${DOCUMENTS_KEY_PREFIX:docs}
+    key-prefix: ${DOCUMENTS_KEY_PREFIX:dev}
     signed-url-ttl: ${DOCUMENTS_SIGNED_URL_TTL:15m}
     directory: ${DOCUMENTS_STORAGE_DIRECTORY:}
   # Empty allowlist = any content type. Example: image/*,application/pdf

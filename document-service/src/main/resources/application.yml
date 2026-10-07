@@ -41,15 +41,19 @@ spring:
         default_schema: documents
         jdbc:
           time_zone: UTC
+  # Schema documents is created by pm-backend Flyway (V21, V35, V61). Those versions
+  # already sit in the host history, so this process validates the tables and does
+  # not run a second migration chain.
   flyway:
-    enabled: true
+    enabled: ${SPRING_FLYWAY_ENABLED:false}
     schemas: documents
     default-schema: documents
     create-schemas: true
     locations: classpath:db/migration
 
 server:
-  port: ${SERVER_PORT:8085}
+  # Own port. A shared SERVER_PORT (pm-backend local file) would put every module on 8081.
+  port: ${DOCUMENT_SERVER_PORT:8085}
   shutdown: graceful
 
 management:

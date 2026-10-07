@@ -18,7 +18,7 @@ image in GHCR, loopback-only host port, health gate in CI.
 ## Database / Flyway (hybrid, host-owned for now)
 
 - Schema: **`documents`** in the shared Postgres.
-- pm-backend applies the `documents` migrations (V21, V35, V61, …). `document-service` still ships `db/migration` and defaults to `spring.flyway.enabled: true` for local dev; the **prd/test profiles now force it off** and compose pins it off.
+- pm-backend applies the `documents` migrations (V21, V35, V61, …). `document-service` still ships `db/migration` for a standalone empty database, which opts in with `spring.flyway.enabled=true`. The default, dev, prd, and test profiles leave Flyway off, and compose pins it off.
 - The container is pinned to `SPRING_FLYWAY_ENABLED=false`. **Exactly one Flyway writer** —
   do not enable it here until a dedicated ownership-transfer PR also removes the schema from
   pm-backend's `spring.flyway.schemas` / migration set (one-way door).
