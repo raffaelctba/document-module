@@ -44,7 +44,9 @@ public class DocumentAccessService {
         if (isProfile(ownerType)) {
             return identity.userId().equals(ownerId) || identity.hasAnyRole(readRoles());
         }
-        return identity.hasAnyRole(readRoles());
+        return identity.hasAnyRole(readRoles())
+                || identity.hasRole("HOST_DOCUMENT_READ")
+                || identity.hasRole("HOST_DOCUMENT_WRITE");
     }
 
     private String[] writeRoles() {

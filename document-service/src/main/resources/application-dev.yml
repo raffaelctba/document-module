@@ -15,8 +15,20 @@ spring:
   jpa:
     show-sql: true
 
-    bucket: ${DOCUMENTS_BUCKET:mypropertyappbucket}
+documents:
+  storage:
+    # memory drops every object when the process restarts. Local dev keeps bytes on disk.
+    provider: ${DOCUMENTS_STORAGE_PROVIDER:filesystem}
+    directory: ${DOCUMENTS_STORAGE_DIRECTORY:${user.home}/.myproperty/document-storage}
     key-prefix: ${DOCUMENTS_KEY_PREFIX:dev}
+  read-roles:
+    - ADMIN
+    - MANAGER
+    - OWNER
+    - DELEGATE
+    - MEMBER
+    - HOST_DOCUMENT_READ
+    - HOST_DOCUMENT_WRITE
   # Host product catalog examples (not baked into core — config only).
   # Override product-default and allow-lists per deployment.
   owners:
