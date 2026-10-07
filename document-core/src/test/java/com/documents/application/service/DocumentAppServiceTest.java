@@ -230,7 +230,9 @@ class DocumentAppServiceTest {
     void otherTenantCannotRead() {
         DocumentResponseDto created = service.create(galleryRequest("myproperty"), manager());
         DocumentActor otherTenant = new DocumentActor("user-9", "co-9", "ten-9", Set.of("ADMIN"));
-        assertThrows(AccessDeniedException.class, () -> service.get(created.id(), otherTenant));
+        // Lookups are tenant-scoped (findByIdAndTenantId): another tenant's document is
+        // indistinguishable from a missing one, so existence is not leaked.
+        assertThrows(DocumentNotFoundException.class, () -> service.get(created.id(), otherTenant));
     }
 
     @Test
