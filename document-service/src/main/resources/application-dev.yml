@@ -15,9 +15,8 @@ spring:
   jpa:
     show-sql: true
 
-documents:
-  storage:
-    provider: ${DOCUMENTS_STORAGE_PROVIDER:memory}
+    bucket: ${DOCUMENTS_BUCKET:mypropertyappbucket}
+    key-prefix: ${DOCUMENTS_KEY_PREFIX:dev}
   # Host product catalog examples (not baked into core — config only).
   # Override product-default and allow-lists per deployment.
   owners:

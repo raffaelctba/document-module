@@ -27,8 +27,8 @@ name: Deploy document-service
 #   secret   REDIS_PASSWORD  (required)
 #   var      REDIS_DATABASE
 #   var      DOCUMENTS_STORAGE_PROVIDER  (required)
-#   var      DOCUMENTS_BUCKET
-#   var      DOCUMENTS_KEY_PREFIX
+#   var      DOCUMENTS_BUCKET       (default mypropertyappbucket)
+#   var      DOCUMENTS_KEY_PREFIX   (default prd on main, test otherwise)
 #   var      DOCUMENTS_S3_REGION
 #   var      DOCUMENTS_S3_ENDPOINT
 #   secret   DOCUMENTS_S3_ACCESS_KEY
@@ -181,9 +181,13 @@ jobs:
             printf 'REDIS_PORT=%s\n' "${REDIS_PORT:-6379}"
             printf 'REDIS_PASSWORD=%s\n' "$REDIS_PASSWORD"
             printf 'REDIS_DATABASE=%s\n' "${REDIS_DATABASE:-12}"
-            printf 'DOCUMENTS_STORAGE_PROVIDER=%s\n' "$DOCUMENTS_STORAGE_PROVIDER"
-            printf 'DOCUMENTS_BUCKET=%s\n' "$DOCUMENTS_BUCKET"
-            printf 'DOCUMENTS_KEY_PREFIX=%s\n' "$DOCUMENTS_KEY_PREFIX"
+            printf 'DOCUMENTS_STORAGE_PROVIDER=%s\n' "${DOCUMENTS_STORAGE_PROVIDER:-s3}"
+            printf 'DOCUMENTS_BUCKET=%s\n' "${DOCUMENTS_BUCKET:-mypropertyappbucket}"
+            if [ "${{ github.ref_name }}" = "main" ]; then
+              printf 'DOCUMENTS_KEY_PREFIX=%s\n' "${DOCUMENTS_KEY_PREFIX:-prd}"
+            else
+              printf 'DOCUMENTS_KEY_PREFIX=%s\n' "${DOCUMENTS_KEY_PREFIX:-test}"
+            fi
             printf 'DOCUMENTS_S3_REGION=%s\n' "$DOCUMENTS_S3_REGION"
             printf 'DOCUMENTS_S3_ENDPOINT=%s\n' "$DOCUMENTS_S3_ENDPOINT"
             printf 'DOCUMENTS_S3_ACCESS_KEY=%s\n' "$DOCUMENTS_S3_ACCESS_KEY"
