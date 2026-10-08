@@ -16,6 +16,9 @@
 #     + resource_access.*.roles  -> X-Roles
 # HMAC: v1\nuserId\ncompanyId\ntenantId\nroles\ntimestamp  (HmacSHA256 hex)
 # Token/header company_id and tenant_id win over body/query values.
+# Access (DocumentAccessRules): HOST_DOCUMENT_READ / HOST_DOCUMENT_WRITE come only from a host
+# service call (the gateway strips HOST_* from end-user tokens) and allow any record of the tenant
+# and company. Any other caller sees only its own USER_PROFILE documents. Token roles grant nothing.
 # tenant_id in JSON is ignored; identity headers are the source of truth.
 
 spring:

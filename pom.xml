@@ -14,7 +14,7 @@
 
     <groupId>com.myproperty</groupId>
     <artifactId>document-module</artifactId>
-    <version>1.0.1</version>
+    <version>1.1.0</version>
     <packaging>pom</packaging>
     <name>Document Module</name>
     <description>Dual-mode aggregator: document-core library and document-service process.</description>
