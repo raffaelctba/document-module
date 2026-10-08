@@ -10,7 +10,7 @@ Dual-mode, **domain-free** document/attachment platform module.
 ## Robustness
 
 - Multi-tenant: `tenantId` on documents; `findByIdAndTenantId`
-- `DocumentActor` + configurable write/read roles
+- `DocumentActor` + `DocumentAccessRules` (host capabilities, or the caller's own profile)
 - Flyway V1 owns `documents` schema
 - Opaque `ownerType` / `ownerId` + product allowlists
 - `OwnerLookupPort` + `DocumentAccessPort` host SPIs

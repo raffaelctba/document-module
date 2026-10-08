@@ -14,7 +14,7 @@
 
     <groupId>com.myproperty</groupId>
     <artifactId>document-module</artifactId>
-    <version>1.0.1</version>
+    <version>1.1.0</version>
     <packaging>pom</packaging>
     <name>Document Module</name>
     <description>Dual-mode aggregator: document-core library and document-service process.</description>
@@ -27,6 +27,8 @@
     <properties>
         <java.version>25</java.version>
         <platform.sdk.version>1.0.0</platform.sdk.version>
+        <!-- Registry the host (pm-backend) resolves document-core and platform-* from. -->
+        <platform.modules.github.packages.url>https://maven.pkg.github.com/raffaelctba/PlatformModules</platform.modules.github.packages.url>
         <lombok.version>1.18.48</lombok.version>
         <aws.sdk.version>2.54.3</aws.sdk.version>
         <testcontainers.version>1.21.4</testcontainers.version>
@@ -40,9 +42,17 @@
     <repositories>
         <repository>
             <id>github</id>
-            <url>https://maven.pkg.github.com/raffaelctba/PlatformModules</url>
+            <url>${platform.modules.github.packages.url}</url>
         </repository>
     </repositories>
+
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages - PlatformModules</name>
+            <url>${platform.modules.github.packages.url}</url>
+        </repository>
+    </distributionManagement>
 
     <dependencyManagement>
         <dependencies>

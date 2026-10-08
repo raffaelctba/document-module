@@ -1,0 +1,77 @@
+name: Publish document-core
+
+# Publishes the document-module parent POM and the document-core library to the PlatformModules
+# GitHub Packages registry, where pm-backend resolves it (repository id `github`).
+#
+# Trigger: push a tag `v<project.version>` (for example `v1.0.1`, also created by a
+# GitHub release with a new tag) or run it manually from `main`.
+#
+# Required (repository settings -> Secrets and variables -> Actions):
+#   secret   PLATFORM_MODULES_PACKAGES_TOKEN  classic PAT with write:packages (+ read:packages, repo)
+#            for raffaelctba. The default GITHUB_TOKEN cannot publish into another
+#            repository's registry (raffaelctba/PlatformModules).
+#   variable PLATFORM_MODULES_PACKAGES_USERNAME  optional, defaults to the workflow actor.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: publish-document-core-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    # Manual runs publish only from main; tags publish the tagged commit.
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      GH_PACKAGES_USERNAME: ${{ vars.PLATFORM_MODULES_PACKAGES_USERNAME || github.actor }}
+      GH_PACKAGES_TOKEN: ${{ secrets.PLATFORM_MODULES_PACKAGES_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Java 25
+        uses: actions/setup-java@v6
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Require packages token
+        run: |
+          [ -n "$GH_PACKAGES_TOKEN" ] || { echo "::error::Missing secret PLATFORM_MODULES_PACKAGES_TOKEN (PAT with write:packages)"; exit 1; }
+
+      - name: Configure GitHub Packages credentials
+        run: |
+          mkdir -p "$HOME/.m2"
+          cat > "$HOME/.m2/settings.xml" <<'XML'
+          <settings xmlns="http://maven.apache.org/SETTINGS/1.2.0">
+            <servers>
+              <server>
+                <id>github</id>
+                <username>${env.GH_PACKAGES_USERNAME}</username>
+                <password>${env.GH_PACKAGES_TOKEN}</password>
+              </server>
+            </servers>
+          </settings>
+          XML
+
+      - name: Check tag matches project version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          VERSION=$(mvn -B -q help:evaluate -Dexpression=project.version -DforceStdout)
+          TAG="${GITHUB_REF_NAME#v}"
+          echo "project.version=$VERSION tag=$GITHUB_REF_NAME"
+          [ "$VERSION" = "$TAG" ] || { echo "::error::Tag $GITHUB_REF_NAME does not match project version $VERSION"; exit 1; }
+          case "$VERSION" in *-SNAPSHOT) echo "::error::Refusing to publish a SNAPSHOT from a tag"; exit 1;; esac
+
+      - name: Test and deploy document-core (+ parent POM)
+        run: mvn -B -ntp -pl document-core -am deploy

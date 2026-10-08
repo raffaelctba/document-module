@@ -48,7 +48,7 @@ class ObjectStorageProcessesTest {
 
     private static DocumentsProperties properties(String provider, String directory) {
         return new DocumentsProperties(
-                null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null,
                 new DocumentsProperties.Storage(provider, null, null, null, null, null, null, null, null, directory),
                 null,
                 null);

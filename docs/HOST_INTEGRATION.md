@@ -34,7 +34,27 @@
    documents.storage.bucket: ${aws.s3.bucket}
    documents.storage.region: ${aws.s3.region}
    ```
-7. Purge: `POST /documents/jobs/purge-deleted` per tenant or `purgeDeleted(systemForTenant, limit)`
+7. Purge: `POST /documents/jobs/purge-deleted` per tenant (needs `HOST_DOCUMENT_WRITE`) or `purgeDeleted(systemForTenant, limit)`
+
+## Access
+
+`DocumentAccessRules` decides who may read or write the documents of an owner. There are two
+kinds of caller:
+
+| Caller | Identity | May |
+|--------|----------|-----|
+| Trusted application (host) | `HOST_DOCUMENT_READ` / `HOST_DOCUMENT_WRITE` | read (and write) any document of its tenant, and of its company when both sides have one. The host has already decided this user may see this record. |
+| End user | anything else | only their own profile documents: owner `USER_PROFILE`, owner id = their user id |
+
+- Through the gateway, `HOST_*` capabilities exist **only** on a service call: the host signs its
+  own identity headers with `GATEWAY_INTERNAL_SECRET` from the internal docker network. The gateway
+  strips `HOST_*` from every end-user token.
+- Roles from an end-user token (ADMIN, MANAGER, OWNER, ...) grant nothing in this module. They
+  are the application's vocabulary. Map them to records in the host, or through
+  `DocumentAccessPort` when the module runs in-process.
+- A record the caller may not see answers **404** (same as a missing one); an owner the caller may
+  not list or attach to answers **403**.
+- `POST /documents/jobs/purge-deleted` needs `HOST_DOCUMENT_WRITE`.
 
 ## Events
 
