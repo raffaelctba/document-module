@@ -1,19 +1,5 @@
 documents:
   product-default: ${DOCUMENTS_PRODUCT_DEFAULT:platform}
-  write-roles:
-    - ADMIN
-    - MANAGER
-    - OWNER
-    - DELEGATE
-    - HOST_DOCUMENT_WRITE
-  read-roles:
-    - ADMIN
-    - MANAGER
-    - OWNER
-    - DELEGATE
-    - MEMBER
-    - HOST_DOCUMENT_READ
-    - HOST_DOCUMENT_WRITE
   # Generic platform catalog. Host products overlay their own owners/purposes
   # via config (see application-dev.yml for multi-product examples).
   owners:

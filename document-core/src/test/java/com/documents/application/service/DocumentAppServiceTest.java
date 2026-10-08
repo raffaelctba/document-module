@@ -287,8 +287,6 @@ class DocumentAppServiceTest {
                 base.productDefault(),
                 base.owners(),
                 base.purposes(),
-                base.writeRoles(),
-                base.readRoles(),
                 base.allowedContentTypes(),
                 base.maxSizeBytes(),
                 base.softDeleteRetention(),
@@ -313,8 +311,6 @@ class DocumentAppServiceTest {
                 base.productDefault(),
                 base.owners(),
                 base.purposes(),
-                base.writeRoles(),
-                base.readRoles(),
                 base.allowedContentTypes(),
                 base.maxSizeBytes(),
                 base.softDeleteRetention(),
@@ -327,13 +323,123 @@ class DocumentAppServiceTest {
         assertThrows(AccessDeniedException.class, () -> service.create(galleryRequest("myproperty"), manager()));
     }
 
+    // ---- Access: an end user never reads a record they are not entitled to -------------------
+
+    @Test
+    void endUserCannotReadAnotherUsersProfileDocument() {
+        DocumentResponseDto avatarOfA = service.upload(avatarRequest("user-a"), new byte[] {1, 2}, endUser("user-a"));
+        DocumentActor userB = endUser("user-b");
+
+        assertThrows(DocumentNotFoundException.class, () -> service.get(avatarOfA.id(), userB));
+        assertThrows(DocumentNotFoundException.class, () -> service.contentUrl(avatarOfA.id(), userB));
+        assertThrows(DocumentNotFoundException.class, () -> service.contentBytes(avatarOfA.id(), userB));
+        assertTrue(service.listByIds(List.of(avatarOfA.id()), userB).isEmpty());
+    }
+
+    @Test
+    void endUserCannotListAnotherUsersProfileDocuments() {
+        service.upload(avatarRequest("user-a"), new byte[] {1}, endUser("user-a"));
+
+        assertThrows(AccessDeniedException.class, () -> service.list(
+                "USER_PROFILE", "user-a", null, "myproperty", PageRequest.of(0, 20), endUser("user-b")));
+    }
+
+    @Test
+    void endUserCannotChangeOrDeleteAnotherUsersProfileDocument() {
+        DocumentResponseDto avatarOfA = service.upload(avatarRequest("user-a"), new byte[] {1}, endUser("user-a"));
+        DocumentActor userB = endUser("user-b");
+
+        assertThrows(DocumentNotFoundException.class, () -> service.update(
+                avatarOfA.id(), new UpdateDocumentRequestDto("OTHER", Set.of()), userB));
+        assertThrows(DocumentNotFoundException.class, () -> service.delete(avatarOfA.id(), userB));
+        assertEquals("AVATAR", service.get(avatarOfA.id(), endUser("user-a")).purpose());
+    }
+
+    @Test
+    void endUserRolesGrantNothingOnOtherOwners() {
+        DocumentResponseDto lease = service.upload(galleryRequest("myproperty"), new byte[] {7}, manager());
+        for (String role : List.of("ADMIN", "MANAGER", "OWNER", "DELEGATE", "MEMBER")) {
+            DocumentActor user = new DocumentActor("user-b", "co-1", "ten-1", Set.of(role));
+            assertThrows(DocumentNotFoundException.class, () -> service.get(lease.id(), user), role);
+            assertThrows(DocumentNotFoundException.class, () -> service.contentUrl(lease.id(), user), role);
+            assertThrows(DocumentNotFoundException.class, () -> service.contentBytes(lease.id(), user), role);
+            assertThrows(AccessDeniedException.class, () -> service.list(
+                    "PROPERTY", "prop-123", null, "myproperty", PageRequest.of(0, 20), user), role);
+            assertTrue(service.listByIds(List.of(lease.id()), user).isEmpty(), role);
+            assertThrows(AccessDeniedException.class,
+                    () -> service.create(galleryRequest("myproperty"), user), role);
+        }
+    }
+
+    @Test
+    void endUserReadsOwnProfileDocuments() {
+        DocumentActor userA = endUser("user-a");
+        DocumentResponseDto avatar = service.upload(avatarRequest("user-a"), new byte[] {1, 2, 3}, userA);
+
+        assertEquals(avatar.id(), service.get(avatar.id(), userA).id());
+        assertEquals(3, service.contentBytes(avatar.id(), userA).length);
+        assertEquals(1, service.list("USER_PROFILE", "user-a", null, "myproperty",
+                PageRequest.of(0, 20), userA).getTotalElements());
+    }
+
+    @Test
+    void trustedApplicationReadsAnyDocumentOfItsTenantAndCompany() {
+        DocumentResponseDto avatarOfA = service.upload(avatarRequest("user-a"), new byte[] {1}, endUser("user-a"));
+        DocumentResponseDto gallery = service.upload(galleryRequest("myproperty"), new byte[] {2}, manager());
+        DocumentActor hostReader = new DocumentActor("user-b", "co-1", "ten-1", Set.of("HOST_DOCUMENT_READ"));
+
+        assertEquals(avatarOfA.id(), service.get(avatarOfA.id(), hostReader).id());
+        assertEquals(1, service.contentBytes(gallery.id(), hostReader).length);
+        assertEquals(1, service.list("PROPERTY", "prop-123", null, "myproperty",
+                PageRequest.of(0, 20), hostReader).getTotalElements());
+        assertEquals(2, service.listByIds(List.of(avatarOfA.id(), gallery.id()), hostReader).size());
+    }
+
+    @Test
+    void trustedReaderCannotWrite() {
+        DocumentResponseDto gallery = service.upload(galleryRequest("myproperty"), new byte[] {2}, manager());
+        DocumentActor hostReader = new DocumentActor("user-b", "co-1", "ten-1", Set.of("HOST_DOCUMENT_READ"));
+
+        assertThrows(AccessDeniedException.class, () -> service.create(galleryRequest("myproperty"), hostReader));
+        assertThrows(AccessDeniedException.class, () -> service.delete(gallery.id(), hostReader));
+    }
+
+    @Test
+    void trustedApplicationIsStillScopedToCompany() {
+        DocumentResponseDto gallery = service.upload(galleryRequest("myproperty"), new byte[] {2}, manager());
+        DocumentActor otherCompany = new DocumentActor("user-9", "co-9", "ten-1", Set.of("HOST_DOCUMENT_WRITE"));
+
+        assertThrows(DocumentNotFoundException.class, () -> service.get(gallery.id(), otherCompany));
+        assertThrows(DocumentNotFoundException.class, () -> service.contentBytes(gallery.id(), otherCompany));
+        assertTrue(service.listByIds(List.of(gallery.id()), otherCompany).isEmpty());
+    }
+
+    @Test
+    void purgeRequiresTheWriteCapability() {
+        assertThrows(AccessDeniedException.class,
+                () -> service.purgeDeleted(new DocumentActor("user-1", "co-1", "ten-1", Set.of("ADMIN")), 10));
+        assertEquals(0, service.purgeDeleted(
+                com.documents.api.dto.DocumentActors.systemForTenant("ten-1"), 10));
+    }
+
+    private static CreateDocumentRequestDto avatarRequest(String userId) {
+        return new CreateDocumentRequestDto(
+                "USER_PROFILE", userId, "AVATAR", "myproperty", "me.png", "image/png", 3L, Set.of());
+    }
+
+    /** A user calling the module directly through the gateway: no host capability. */
+    private static DocumentActor endUser(String userId) {
+        return new DocumentActor(userId, "co-1", "ten-1", Set.of());
+    }
+
     private static CreateDocumentRequestDto galleryRequest(String product) {
         return new CreateDocumentRequestDto(
                 "PROPERTY", "prop-123", "GALLERY", product, "pool.jpg", "image/jpeg", 12L, Set.of("pool"));
     }
 
+    /** The host application writing on behalf of user-1 (service identity with HOST_DOCUMENT_WRITE). */
     private static DocumentActor manager() {
-        return new DocumentActor("user-1", "co-1", "ten-1", Set.of("MANAGER"));
+        return new DocumentActor("user-1", "co-1", "ten-1", Set.of("MANAGER", "HOST_DOCUMENT_WRITE"));
     }
 
     private static final class RecordingOwnerLookup implements OwnerLookupPort {

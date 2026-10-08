@@ -46,8 +46,8 @@ public class DocumentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(documentsApi.create(request, actor()));
     }
 
+    // Record-level checks (tenant, company, owner) run in document-core and answer 404.
     @GetMapping("/{documentId}")
-    @PreAuthorize("@documentAccess.canRead(authentication, #documentId)")
     public DocumentResponseDto get(@PathVariable String documentId) {
         return documentsApi.get(documentId, actor());
     }
@@ -71,7 +71,6 @@ public class DocumentController {
     }
 
     @PostMapping("/{documentId}/complete")
-    @PreAuthorize("@documentAccess.canWriteExisting(authentication, #documentId)")
     public DocumentResponseDto complete(
             @PathVariable String documentId,
             @RequestBody(required = false) CompleteDocumentRequestDto request) {
@@ -79,7 +78,6 @@ public class DocumentController {
     }
 
     @PatchMapping("/{documentId}")
-    @PreAuthorize("@documentAccess.canWriteExisting(authentication, #documentId)")
     public DocumentResponseDto update(
             @PathVariable String documentId,
             @RequestBody UpdateDocumentRequestDto request) {
@@ -87,27 +85,24 @@ public class DocumentController {
     }
 
     @DeleteMapping("/{documentId}")
-    @PreAuthorize("@documentAccess.canWriteExisting(authentication, #documentId)")
     public ResponseEntity<Void> delete(@PathVariable String documentId) {
         documentsApi.delete(documentId, actor());
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping(value = "/{documentId}/content/bytes", produces = org.springframework.http.MediaType.APPLICATION_OCTET_STREAM_VALUE)
-    @PreAuthorize("@documentAccess.canRead(authentication, #documentId)")
     public byte[] contentBytes(@PathVariable String documentId) {
         return documentsApi.contentBytes(documentId, actor());
     }
 
     @GetMapping("/{documentId}/content")
-    @PreAuthorize("@documentAccess.canRead(authentication, #documentId)")
     public ResponseEntity<Void> content(@PathVariable String documentId) {
         String url = documentsApi.contentUrl(documentId, actor());
         return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(url)).build();
     }
 
     @PostMapping("/jobs/purge-deleted")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    @PreAuthorize("hasRole('HOST_DOCUMENT_WRITE')")
     public Map<String, Integer> purgeDeleted(
             @RequestParam(required = false, defaultValue = "100") int limit) {
         int purged = documentsApi.purgeDeleted(actor(), limit);
