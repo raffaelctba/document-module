@@ -12,6 +12,7 @@ import com.myproperty.platform.common.time.ClockPort;
 import com.documents.application.port.DocumentRepositoryPort;
 import com.documents.application.port.ObjectStoragePort;
 import com.documents.api.DocumentAccessPort;
+import com.documents.api.DocumentAccessRules;
 import com.documents.api.OwnerLookupPort;
 import com.documents.domain.event.DocumentDeletedEvent;
 import com.documents.domain.event.DocumentReadyEvent;
@@ -40,7 +41,7 @@ import java.util.UUID;
 @Transactional
 public class DocumentAppService {
 
-    // Roles are product-agnostic defaults from DocumentsProperties (configurable per host).
+    // Access rules: DocumentAccessRules (trusted application capabilities, or the caller's own profile).
 
     private final DocumentRepositoryPort documents;
     private final ObjectStoragePort objectStorage;
@@ -240,6 +241,9 @@ public class DocumentAppService {
         }
         List<DocumentResponseDto> out = new ArrayList<>();
         for (Document document : documents.findByIdsAndTenantId(ids, actor.tenantId())) {
+            if (document.deleted() || !sameCompany(actor, document.companyId())) {
+                continue;
+            }
             try {
                 assertCanRead(actor, document.owner());
                 out.add(toDtoWithUrls(document));
@@ -253,8 +257,8 @@ public class DocumentAppService {
     /** Hard-deletes soft-deleted documents older than retention; removes object storage bytes. */
     public int purgeDeleted(DocumentActor actor, int limit) {
         requireActor(actor);
-        if (!actor.hasAnyRole("ADMIN", "MANAGER")) {
-            throw new AccessDeniedException("purgeDeleted requires ADMIN or MANAGER");
+        if (!DocumentAccessRules.trustedWriter(actor)) {
+            throw new AccessDeniedException("purgeDeleted requires " + DocumentAccessRules.HOST_WRITE);
         }
         Instant cutoff = clock.now().minus(properties.softDeleteRetention());
         int max = limit < 1 ? 100 : Math.min(limit, 500);
@@ -345,13 +349,22 @@ public class DocumentAppService {
         return objectStorage.get(document.storageKey());
     }
 
+    /**
+     * The record exists in the caller's tenant, is not deleted, matches the caller's company and
+     * the caller may read it. Otherwise the record is reported as missing, so a caller cannot
+     * probe which ids exist.
+     */
     private Document requireVisible(String documentId, DocumentActor actor) {
         requireActor(actor);
         Document document = documents.findByIdAndTenantId(documentId, actor.tenantId())
                 .filter(candidate -> !candidate.deleted())
+                .filter(candidate -> sameCompany(actor, candidate.companyId()))
                 .orElseThrow(() -> new DocumentNotFoundException(documentId));
-        assertSameCompany(actor, document.companyId());
-        assertCanRead(actor, document.owner());
+        try {
+            assertCanRead(actor, document.owner());
+        } catch (AccessDeniedException ex) {
+            throw new DocumentNotFoundException(documentId);
+        }
         return document;
     }
 
@@ -383,18 +396,10 @@ public class DocumentAppService {
         if (Boolean.FALSE.equals(host)) {
             throw new AccessDeniedException("Not allowed to attach documents to " + owner.type());
         }
-        if (Boolean.TRUE.equals(host)) {
+        if (Boolean.TRUE.equals(host) || DocumentAccessRules.canWrite(actor, owner)) {
             return;
         }
-        if (owner.profile()) {
-            if (owner.id().equals(actor.userId()) || actor.hasAnyRole(writeRoles())) {
-                return;
-            }
-            throw new AccessDeniedException("Not allowed to attach to this profile");
-        }
-        if (!actor.hasAnyRole(writeRoles())) {
-            throw new AccessDeniedException("Not allowed to attach documents to " + owner.type());
-        }
+        throw new AccessDeniedException("Not allowed to attach documents to " + owner.type());
     }
 
     private void assertCanRead(DocumentActor actor, OwnerRef owner) {
@@ -402,18 +407,10 @@ public class DocumentAppService {
         if (Boolean.FALSE.equals(host)) {
             throw new AccessDeniedException("Not allowed to read documents for " + owner.type());
         }
-        if (Boolean.TRUE.equals(host)) {
+        if (Boolean.TRUE.equals(host) || DocumentAccessRules.canRead(actor, owner)) {
             return;
         }
-        if (owner.profile()) {
-            if (owner.id().equals(actor.userId()) || actor.hasAnyRole(readRoles())) {
-                return;
-            }
-            throw new AccessDeniedException("Not allowed to read this profile document");
-        }
-        if (!actor.hasAnyRole(readRoles())) {
-            throw new AccessDeniedException("Not allowed to read documents for " + owner.type());
-        }
+        throw new AccessDeniedException("Not allowed to read documents for " + owner.type());
     }
 
     private void requireActor(DocumentActor actor) {
@@ -425,20 +422,13 @@ public class DocumentAppService {
         }
     }
 
-    private static void assertSameTenant(DocumentActor actor, String resourceTenantId) {
-        if (resourceTenantId == null || resourceTenantId.isBlank() || !actor.tenantId().equals(resourceTenantId)) {
-            throw new AccessDeniedException("Tenant mismatch");
-        }
-    }
-
-    private static void assertSameCompany(DocumentActor actor, String resourceCompanyId) {
+    /** A company on both sides must match. A side without a company does not restrict. */
+    private static boolean sameCompany(DocumentActor actor, String resourceCompanyId) {
         if (actor.companyId() == null || actor.companyId().isBlank()
                 || resourceCompanyId == null || resourceCompanyId.isBlank()) {
-            return;
+            return true;
         }
-        if (!actor.companyId().equals(resourceCompanyId)) {
-            throw new AccessDeniedException("Company mismatch");
-        }
+        return actor.companyId().equals(resourceCompanyId);
     }
 
     private DocumentResponseDto toDtoWithUrls(Document document) {
@@ -506,11 +496,4 @@ public class DocumentAppService {
         }
     }
 
-    private String[] writeRoles() {
-        return properties.writeRoles().toArray(String[]::new);
-    }
-
-    private String[] readRoles() {
-        return properties.readRoles().toArray(String[]::new);
-    }
 }

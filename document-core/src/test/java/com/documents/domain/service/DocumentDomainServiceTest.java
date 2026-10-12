@@ -98,8 +98,6 @@ public class DocumentDomainServiceTest {
                                 "INSPECTION", "NOTICE", "APPLICATION", "INCOME", "COI",
                                 "CHAT_ATTACHMENT", "SIGNATURE", "MINUTES", "EVICTION"),
                         "mycleaning", List.of("BEFORE_PHOTO", "AFTER_PHOTO", "AVATAR")),
-                null,
-                null,
                 List.of(),
                 null,
                 null,

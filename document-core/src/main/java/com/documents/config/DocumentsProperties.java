@@ -10,14 +10,13 @@ import java.util.stream.Collectors;
 
 /**
  * Binds the {@code documents.*} configuration namespace (see {@code documents.yml}).
+ * Access is not configured here: see {@link com.documents.api.DocumentAccessRules}.
  */
 @ConfigurationProperties(prefix = "documents")
 public record DocumentsProperties(
         String productDefault,
         Map<String, List<String>> owners,
         Map<String, List<String>> purposes,
-        List<String> writeRoles,
-        List<String> readRoles,
         List<String> allowedContentTypes,
         Long maxSizeBytes,
         Duration softDeleteRetention,
@@ -33,8 +32,6 @@ public record DocumentsProperties(
         }
         owners = normalizeAllowlist(owners);
         purposes = normalizeAllowlist(purposes);
-        writeRoles = normalizeRoleList(writeRoles, List.of("ADMIN", "MANAGER", "OWNER", "DELEGATE"));
-        readRoles = normalizeRoleList(readRoles, List.of("ADMIN", "MANAGER", "OWNER", "DELEGATE", "MEMBER"));
         if (allowedContentTypes == null) {
             allowedContentTypes = List.of();
         } else {
@@ -58,16 +55,6 @@ public record DocumentsProperties(
         if (http == null) {
             http = new Http(100);
         }
-    }
-
-    private static List<String> normalizeRoleList(List<String> source, List<String> defaults) {
-        if (source == null || source.isEmpty()) {
-            return List.copyOf(defaults);
-        }
-        return source.stream()
-                .filter(v -> v != null && !v.isBlank())
-                .map(v -> v.trim().toUpperCase(Locale.ROOT))
-                .toList();
     }
 
     public List<String> ownersFor(String product) {

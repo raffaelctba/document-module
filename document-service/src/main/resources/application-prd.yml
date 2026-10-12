@@ -23,6 +23,8 @@ spring:
 documents:
   storage:
     provider: ${DOCUMENTS_STORAGE_PROVIDER:s3}
+    bucket: ${DOCUMENTS_BUCKET:mypropertyappbucket}
+    key-prefix: ${DOCUMENTS_KEY_PREFIX:prd}
 
 logging:
   level:
