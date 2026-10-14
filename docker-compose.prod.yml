@@ -1,4 +1,4 @@
-# PRD overlay — joins the shared mybuilding-prd network (pm-backend, otp-service, api-gateway, Postgres/Redis).
+# PRD overlay — joins the shared mybuilding-prd network (pm-backend, notifications-module, api-gateway, Postgres/Redis).
 name: document-prd
 services:
   document-module:

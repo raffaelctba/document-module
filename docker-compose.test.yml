@@ -1,4 +1,4 @@
-# TEST overlay — joins the shared mybuilding-test network (pm-backend, otp-service, api-gateway, Postgres/Redis).
+# TEST overlay — joins the shared mybuilding-test network (pm-backend, notifications-module, api-gateway, Postgres/Redis).
 name: document-test
 services:
   document-module:
