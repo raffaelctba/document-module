@@ -23,6 +23,8 @@ RUN --mount=type=secret,id=maven_settings,required=false \
 FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
 RUN apk add --no-cache curl && addgroup -S app && adduser -S app -G app
+# Owned by app so a named volume mounted here (filesystem storage) is writable.
+RUN mkdir -p /data/documents && chown app:app /data/documents
 COPY --from=build /workspace/app.jar /app/app.jar
 USER app
 EXPOSE 8085
