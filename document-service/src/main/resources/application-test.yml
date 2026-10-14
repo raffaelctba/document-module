@@ -18,6 +18,13 @@ spring:
     show-sql: false
 
 documents:
+  # Host product catalog: pm-backend (MyProperty) sends product "myproperty". Same list as application-dev.yml.
+  owners:
+    myproperty: [PROPERTY, AMENITY, USER_PROFILE, CONVERSATION]
+  purposes:
+    myproperty: [COVER, GALLERY, FLOOR_PLAN, CONTRACT, INVOICE, RECEIPT, REPORT, PHOTO, OTHER, AVATAR,
+                 ID_DOCUMENT, LEASE, INSPECTION, NOTICE, APPLICATION, INCOME, COI, CHAT_ATTACHMENT,
+                 SIGNATURE, MINUTES, EVICTION]
   storage:
     provider: ${DOCUMENTS_STORAGE_PROVIDER:s3}
     bucket: ${DOCUMENTS_BUCKET:mypropertyappbucket}
