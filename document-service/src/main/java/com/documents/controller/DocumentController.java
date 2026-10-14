@@ -22,6 +22,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
+import java.io.IOException;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
@@ -44,6 +48,23 @@ public class DocumentController {
     @PreAuthorize("@documentAccess.canWrite(authentication, #request)")
     public ResponseEntity<DocumentResponseDto> create(@RequestBody CreateDocumentRequestDto request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(documentsApi.create(request, actor()));
+    }
+
+    /**
+     * One-call upload: create + store bytes + mark ready ({@link DocumentsApi#upload}). For callers that
+     * hold the bytes (a host relaying a multipart form) instead of a client doing the signed-URL
+     * create/complete dance. Parts: {@code metadata} (the same JSON as {@code POST /documents}) and
+     * {@code file}. Same write check as create.
+     */
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("@documentAccess.canWrite(authentication, #request)")
+    public ResponseEntity<DocumentResponseDto> upload(
+            @RequestPart("metadata") CreateDocumentRequestDto request,
+            @RequestPart("file") MultipartFile file) throws IOException {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("file is required");
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(documentsApi.upload(request, file.getBytes(), actor()));
     }
 
     // Record-level checks (tenant, company, owner) run in document-core and answer 404.
