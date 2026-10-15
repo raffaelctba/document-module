@@ -1,0 +1,17 @@
+name: main-only-from-test
+on:
+  pull_request:
+    branches: [main]
+jobs:
+  main-only-from-test:
+    name: main-only-from-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Allow merges to main only from test
+        run: |
+          if [ "${{ github.head_ref }}" != "test" ]; then
+            echo "Merges to main are only allowed from the test branch."
+            echo "This pull request is from '${{ github.head_ref }}'."
+            exit 1
+          fi
+          echo "Source branch is test."
