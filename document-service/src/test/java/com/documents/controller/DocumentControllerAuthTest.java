@@ -159,4 +159,35 @@ class DocumentControllerAuthTest {
                 12L, null, "PENDING_UPLOAD", Set.of(), "user-1", now, null,
                 "https://upload.example/" + id, now, null, null);
     }
+
+    @Test
+    void multipartUploadHandsTheBytesToTheApi() throws Exception {
+        when(documentsApi.upload(any(), any(), any())).thenReturn(response("d9"));
+        var metadata = new org.springframework.mock.web.MockMultipartFile("metadata", "", "application/json",
+                "{\"ownerType\":\"PROPERTY\",\"ownerId\":\"15\",\"purpose\":\"OTHER\",\"filename\":\"t.pdf\",\"contentType\":\"application/pdf\"}".getBytes());
+        var file = new org.springframework.mock.web.MockMultipartFile("file", "t.pdf", "application/pdf", "%PDF-1.4".getBytes());
+        // Sign the identity headers for this path, then put them on the multipart request.
+        var signed = IdentityRequests.withIdentity(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/documents/upload"), "user-1", "co-1", "ten-1", "ADMIN")
+                .buildRequest(new org.springframework.mock.web.MockServletContext());
+        var upload = org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart("/documents/upload")
+                .file(metadata).file(file);
+        for (String name : java.util.Collections.list(signed.getHeaderNames())) {
+            upload.header(name, signed.getHeader(name));
+        }
+        mockMvc.perform(upload)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value("d9"));
+        var bytes = forClass(byte[].class);
+        org.mockito.Mockito.verify(documentsApi).upload(any(), bytes.capture(), any());
+        org.junit.jupiter.api.Assertions.assertEquals("%PDF-1.4", new String(bytes.getValue()));
+    }
+
+    @Test
+    void uploadRequiresDocumentAccess() throws Exception {
+        PreAuthorize authorization = DocumentController.class
+                .getMethod("upload", CreateDocumentRequestDto.class, org.springframework.web.multipart.MultipartFile.class)
+                .getAnnotation(PreAuthorize.class);
+        assertTrue(authorization.value().contains("documentAccess.canWrite"));
+    }
 }

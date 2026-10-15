@@ -24,6 +24,11 @@
 spring:
   application:
     name: document-service
+  # POST /documents/upload (multipart). Content rules still apply (documents.max-size-bytes).
+  servlet:
+    multipart:
+      max-file-size: ${DOCUMENTS_UPLOAD_MAX_FILE_SIZE:25MB}
+      max-request-size: ${DOCUMENTS_UPLOAD_MAX_REQUEST_SIZE:26MB}
   config:
     import:
       - optional:classpath:documents.yml

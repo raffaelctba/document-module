@@ -1,4 +1,4 @@
-# TEST overlay — joins the shared mybuilding-test network (pm-backend, otp-service, api-gateway, Postgres/Redis).
+# TEST overlay — joins the shared mybuilding-test network (pm-backend, notifications-module, api-gateway, Postgres/Redis).
 name: document-test
 services:
   document-module:
@@ -7,6 +7,10 @@ services:
       - "127.0.0.1:9185:8085"
     environment:
       SPRING_PROFILES_ACTIVE: test
+      # Used only when DOCUMENTS_STORAGE_PROVIDER=filesystem (TEST has no S3 bucket yet).
+      DOCUMENTS_STORAGE_DIRECTORY: /data/documents
+    volumes:
+      - document-storage:/data/documents
     logging:
       driver: json-file
       options:
@@ -14,6 +18,9 @@ services:
         max-file: "3"
     networks:
       - module-network
+
+volumes:
+  document-storage:
 
 networks:
   module-network:
