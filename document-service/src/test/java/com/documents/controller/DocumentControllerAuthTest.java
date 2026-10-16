@@ -116,12 +116,12 @@ class DocumentControllerAuthTest {
     }
 
     @Test
-    void missingTenantFallsBackToProductDefault() throws Exception {
+    void missingTenantIsNotReplacedByAHardCodedProductDefault() throws Exception {
         var actor = forClass(DocumentActor.class);
         when(documentsApi.get(eq("d1"), actor.capture())).thenReturn(response("d1"));
         mockMvc.perform(IdentityRequests.withIdentity(get("/documents/d1"), "user-1", "co-1", null, "ADMIN"))
                 .andExpect(status().isOk());
-        assertEquals("myproperty", actor.getValue().tenantId());
+        org.junit.jupiter.api.Assertions.assertNull(actor.getValue().tenantId(), "tenant comes from the signed identity only; no hard-coded product fallback");
     }
 
     @Test
