@@ -146,6 +146,8 @@ jobs:
           DATABASE_USERNAME: ${{ secrets.DATABASE_USERNAME }}
           DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
           GATEWAY_INTERNAL_SECRET: ${{ secrets.GATEWAY_INTERNAL_SECRET }}
+          # Edge ES256 public key (base64 DER). Empty = service tokens off; HMAC stays the fallback.
+          SERVICE_TOKEN_EDGE_PUBLIC_KEY: ${{ secrets.SERVICE_TOKEN_EDGE_PUBLIC_KEY }}
           REDIS_HOST: ${{ vars.REDIS_HOST }}
           REDIS_PORT: ${{ vars.REDIS_PORT }}
           REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
@@ -177,6 +179,9 @@ jobs:
             printf 'DATABASE_USERNAME=%s\n' "$DATABASE_USERNAME"
             printf 'DATABASE_PASSWORD=%s\n' "$DATABASE_PASSWORD"
             printf 'GATEWAY_INTERNAL_SECRET=%s\n' "$GATEWAY_INTERNAL_SECRET"
+            printf 'SERVICE_TOKEN_EDGE_PUBLIC_KEY=%s\n' "${SERVICE_TOKEN_EDGE_PUBLIC_KEY:-}"
+            # Audience only with a key: an audience with an empty key would enable verification with no key.
+            if [ -n "${SERVICE_TOKEN_EDGE_PUBLIC_KEY:-}" ]; then printf 'SERVICE_TOKEN_AUDIENCE=%s\n' 'documents'; fi
             printf 'REDIS_HOST=%s\n' "$REDIS_HOST"
             printf 'REDIS_PORT=%s\n' "${REDIS_PORT:-6379}"
             printf 'REDIS_PASSWORD=%s\n' "$REDIS_PASSWORD"
