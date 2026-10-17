@@ -1,16 +1,22 @@
 name: gitleaks
 
 on:
+  # PRs into dev/test only; no push runs (the PR already scanned those commits). Manual run kept.
   pull_request:
-  push:
-    branches: [dev, test, main]
+    branches: [dev, test]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
+
+concurrency:
+  group: gitleaks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
   scan:
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
