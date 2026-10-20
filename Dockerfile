@@ -10,7 +10,7 @@
 #
 # CI (.github/workflows/deploy.yml) generates that settings.xml from
 # PLATFORM_MODULES_PACKAGES_TOKEN.
-FROM maven:3.9.16-eclipse-temurin-25 AS build
+FROM maven:3.10.0-eclipse-temurin-25 AS build
 WORKDIR /workspace
 COPY . /workspace
 RUN --mount=type=secret,id=maven_settings,required=false \
