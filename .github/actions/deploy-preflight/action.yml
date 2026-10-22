@@ -1,0 +1,79 @@
+# deploy-preflight v1 — shared preflight for every deploy workflow (PlatformApps / PlatformModules).
+# Canonical copy; keep this directory byte-identical in every repo (preflight.sh carries the version).
+# Each workflow's `preflight` job maps its secrets/vars into env and lists the names here; nothing
+# else may build, push or deploy unless this job passes. Prints names and results, never values.
+name: deploy-preflight
+description: Check required env vars/secrets, SSH to the EC2 host and the database from that host.
+inputs:
+  required-build:
+    description: Space-separated env names the build needs (checked on every run).
+    required: false
+    default: ''
+  required:
+    description: Space-separated env names the deploy needs (checked when remote is true).
+    required: false
+    default: ''
+  remote:
+    description: "'true' when this run deploys (SSH + DB checks); 'false' for build-only runs."
+    required: false
+    default: 'true'
+  ssh-key-var:
+    description: Env name holding the private SSH key.
+    required: false
+    default: SSH_KEY
+  host-var:
+    description: Env name holding the EC2 host.
+    required: false
+    default: EC2_HOST
+  user-var:
+    description: Env name holding the EC2 user.
+    required: false
+    default: EC2_USER
+  network:
+    description: Docker network the service joins on the host (checked to exist; used for the DB check).
+    required: false
+    default: ''
+  db-url-var:
+    description: Env name of the JDBC URL. Empty = no database check.
+    required: false
+    default: ''
+  db-user-var:
+    description: Env name of the DB user.
+    required: false
+    default: DATABASE_USERNAME
+  db-password-var:
+    description: Env name of the DB password.
+    required: false
+    default: DATABASE_PASSWORD
+  db-create-schema:
+    description: Optional schema the service's Flyway owns, e.g. support; reports it and fails if the DB user cannot CREATE there.
+    required: false
+    default: ''
+  expect-running:
+    description: Space-separated container-name fragments that should be running on the host (warning only), e.g. chat-module.
+    required: false
+    default: ''
+  min-length:
+    description: Space-separated NAME=N pairs; NAME must be at least N characters (e.g. GATEWAY_INTERNAL_SECRET=32).
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+    - name: Preflight
+      shell: bash
+      env:
+        PF_REQUIRED_BUILD: ${{ inputs.required-build }}
+        PF_REQUIRED: ${{ inputs.required }}
+        PF_REMOTE: ${{ inputs.remote }}
+        PF_SSH_KEY_VAR: ${{ inputs.ssh-key-var }}
+        PF_HOST_VAR: ${{ inputs.host-var }}
+        PF_USER_VAR: ${{ inputs.user-var }}
+        PF_NETWORK: ${{ inputs.network }}
+        PF_DB_URL_VAR: ${{ inputs.db-url-var }}
+        PF_DB_USER_VAR: ${{ inputs.db-user-var }}
+        PF_DB_PASSWORD_VAR: ${{ inputs.db-password-var }}
+        PF_DB_CREATE_SCHEMA: ${{ inputs.db-create-schema }}
+        PF_EXPECT_RUNNING: ${{ inputs.expect-running }}
+        PF_MIN_LENGTH: ${{ inputs.min-length }}
+      run: bash "$GITHUB_ACTION_PATH/preflight.sh"

@@ -52,7 +52,54 @@ env:
   IMAGE_NAME: ${{ github.repository_owner }}/document-service
 
 jobs:
+  preflight:
+    # deploy-preflight (.github/actions/deploy-preflight, shared verbatim by every deploy repo):
+    # the target environment's required secrets/vars are set and well-formed, SSH to the EC2 host
+    # works and the database answers from that host. Every other job needs this one, so nothing
+    # builds, pushes or deploys when it fails. Prints names and results only, never values.
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'PRD' || 'TEST' }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+      EC2_HOST: ${{ vars.EC2_HOST }}
+      EC2_USER: ${{ vars.EC2_USER }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DATABASE_USERNAME: ${{ secrets.DATABASE_USERNAME }}
+      DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+      GATEWAY_INTERNAL_SECRET: ${{ secrets.GATEWAY_INTERNAL_SECRET }}
+      SERVICE_TOKEN_EDGE_PUBLIC_KEY: ${{ secrets.SERVICE_TOKEN_EDGE_PUBLIC_KEY }}
+      REDIS_HOST: ${{ vars.REDIS_HOST }}
+      REDIS_PORT: ${{ vars.REDIS_PORT }}
+      REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+      REDIS_DATABASE: ${{ vars.REDIS_DATABASE }}
+      DOCUMENTS_STORAGE_PROVIDER: ${{ vars.DOCUMENTS_STORAGE_PROVIDER }}
+      DOCUMENTS_BUCKET: ${{ vars.DOCUMENTS_BUCKET }}
+      DOCUMENTS_KEY_PREFIX: ${{ vars.DOCUMENTS_KEY_PREFIX }}
+      DOCUMENTS_S3_REGION: ${{ vars.DOCUMENTS_S3_REGION }}
+      DOCUMENTS_S3_ENDPOINT: ${{ vars.DOCUMENTS_S3_ENDPOINT }}
+      DOCUMENTS_S3_ACCESS_KEY: ${{ secrets.DOCUMENTS_S3_ACCESS_KEY }}
+      DOCUMENTS_S3_SECRET_KEY: ${{ secrets.DOCUMENTS_S3_SECRET_KEY }}
+      GH_PACKAGES_USERNAME: ${{ vars.PLATFORM_MODULES_PACKAGES_USERNAME || github.actor }}
+      GH_PACKAGES_TOKEN: ${{ secrets.PLATFORM_MODULES_PACKAGES_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/actions
+      - name: Preflight (env, SSH, database)
+        uses: ./.github/actions/deploy-preflight
+        with:
+          required-build: GH_PACKAGES_TOKEN
+          required: EC2_HOST EC2_USER SSH_KEY DATABASE_URL DATABASE_USERNAME DATABASE_PASSWORD GATEWAY_INTERNAL_SECRET REDIS_HOST REDIS_PASSWORD DOCUMENTS_STORAGE_PROVIDER
+          remote: ${{ github.ref_name != 'main' || vars.EC2_PRD_ENABLED == 'true' }}
+          db-url-var: DATABASE_URL
+          network: ${{ github.ref_name == 'main' && 'mybuilding-prd' || 'mybuilding-test' }}
+          min-length: GATEWAY_INTERNAL_SECRET=32
+
   build_and_push:
+    needs: preflight
     runs-on: ubuntu-latest
     permissions:
       packages: write
@@ -119,7 +166,7 @@ jobs:
         run: rm -f "$RUNNER_TEMP/maven-settings.xml"
 
   deploy:
-    needs: build_and_push
+    needs: [preflight, build_and_push]
     if: github.ref_name != 'main' || vars.EC2_PRD_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'main' && 'PRD' || 'TEST' }}
@@ -146,6 +193,8 @@ jobs:
           DATABASE_USERNAME: ${{ secrets.DATABASE_USERNAME }}
           DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
           GATEWAY_INTERNAL_SECRET: ${{ secrets.GATEWAY_INTERNAL_SECRET }}
+          # Edge ES256 public key (base64 DER). Empty = service tokens off; HMAC stays the fallback.
+          SERVICE_TOKEN_EDGE_PUBLIC_KEY: ${{ secrets.SERVICE_TOKEN_EDGE_PUBLIC_KEY }}
           REDIS_HOST: ${{ vars.REDIS_HOST }}
           REDIS_PORT: ${{ vars.REDIS_PORT }}
           REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
@@ -177,6 +226,9 @@ jobs:
             printf 'DATABASE_USERNAME=%s\n' "$DATABASE_USERNAME"
             printf 'DATABASE_PASSWORD=%s\n' "$DATABASE_PASSWORD"
             printf 'GATEWAY_INTERNAL_SECRET=%s\n' "$GATEWAY_INTERNAL_SECRET"
+            printf 'SERVICE_TOKEN_EDGE_PUBLIC_KEY=%s\n' "${SERVICE_TOKEN_EDGE_PUBLIC_KEY:-}"
+            # Audience only with a key: an audience with an empty key would enable verification with no key.
+            if [ -n "${SERVICE_TOKEN_EDGE_PUBLIC_KEY:-}" ]; then printf 'SERVICE_TOKEN_AUDIENCE=%s\n' 'documents'; fi
             printf 'REDIS_HOST=%s\n' "$REDIS_HOST"
             printf 'REDIS_PORT=%s\n' "${REDIS_PORT:-6379}"
             printf 'REDIS_PASSWORD=%s\n' "$REDIS_PASSWORD"
