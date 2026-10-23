@@ -98,8 +98,24 @@ jobs:
           network: ${{ github.ref_name == 'main' && 'mybuilding-prd' || 'mybuilding-test' }}
           min-length: GATEWAY_INTERNAL_SECRET=32
 
-  build_and_push:
+  ci-green:
+    # Safety gate: build and deploy only a commit whose CI passed (ci-gate on this exact SHA).
     needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      checks: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/actions
+      - uses: ./.github/actions/require-ci-green
+        with:
+          sha: ${{ github.sha }}
+
+  build_and_push:
+    needs: [preflight, ci-green]
     runs-on: ubuntu-latest
     permissions:
       packages: write

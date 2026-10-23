@@ -27,7 +27,23 @@ permissions:
   packages: write
 
 jobs:
+  ci-green:
+    # Publish only a commit whose CI passed (ci-gate on this exact SHA); the build below skips tests.
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      checks: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/actions
+      - uses: ./.github/actions/require-ci-green
+        with:
+          sha: ${{ github.sha }}
+
   publish:
+    needs: ci-green
     # Manual runs publish only from main; tags publish the tagged commit.
     if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -73,5 +89,5 @@ jobs:
           [ "$VERSION" = "$TAG" ] || { echo "::error::Tag $GITHUB_REF_NAME does not match project version $VERSION"; exit 1; }
           case "$VERSION" in *-SNAPSHOT) echo "::error::Refusing to publish a SNAPSHOT from a tag"; exit 1;; esac
 
-      - name: Test and deploy document-core (+ parent POM)
-        run: mvn -B -ntp -pl document-core -am deploy
+      - name: Deploy document-core (+ parent POM) (tests ran in CI)
+        run: mvn -B -ntp -pl document-core -am deploy -DskipTests
