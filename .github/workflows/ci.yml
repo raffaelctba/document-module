@@ -1,0 +1,147 @@
+name: CI
+
+on:
+  # CI owns all testing: deploy.yml and publish.yml run no tests and ship only a SHA whose ci-gate passed
+  # (.github/actions/require-ci-green). PRs into dev/test/main and pushes to dev/test/main.
+  # A push whose tree equals the head its merged PR's green CI already tested skips the build (nothing new
+  # to test); any other push (direct push, base moved) builds and tests like a PR.
+  # Docs-only changes skip the build via detect, not trigger paths-ignore, so ci-gate always reports.
+  pull_request:
+    branches: [dev, test, main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [dev, test, main]
+  workflow_dispatch:
+
+concurrency:
+  # One run per PR (newer pushes cancel older ones); branch pushes queue, so every pushed SHA gets its ci-gate.
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Read-only token. actions: read lets detect look up the merged PR's CI run.
+permissions:
+  contents: read
+  packages: read
+  pull-requests: read
+  actions: read
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.out.outputs.build }}
+    steps:
+      - uses: actions/checkout@v4
+      # Anything besides docs/** and *.md? (every: a file counts only if it matches all patterns.)
+      # Drafts report no code, so the build skips and ci-gate still passes.
+      - id: code
+        if: ${{ github.event_name != 'workflow_dispatch' && !github.event.pull_request.draft }}
+        uses: dorny/paths-filter@v3
+        with:
+          predicate-quantifier: every
+          filters: |
+            code:
+              - '**'
+              - '!docs/**'
+              - '!**/*.md'
+      # Push: the commit a merged PR produced. Same tree as the PR head and that PR's latest CI run
+      # succeeded? Then this exact tree is already tested (PR CI tests the merge result), so skip the build.
+      - id: covered
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          # Any lookup error falls back to building (covered=false).
+          covered=false
+          read -r pr head ref <<<"$(gh api "repos/$REPO/commits/$SHA/pulls" --jq \
+            "[.[] | select(.merged_at != null and .base.ref == \"$BRANCH\")] | first | if . == null then \"\" else \"\(.number) \(.head.sha) \(.head.ref)\" end" || true)"
+          if [ -n "${head:-}" ]; then
+            tree=$(gh api "repos/$REPO/git/commits/$SHA" --jq .tree.sha || true)
+            head_tree=$(gh api "repos/$REPO/git/commits/$head" --jq .tree.sha || true)
+            ci=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?event=pull_request&head_sha=$head&per_page=50" --jq \
+              "[.workflow_runs[] | select(.head_branch == \"$ref\")] | sort_by(.id) | last | if . == null then \"none\" else \"\(.conclusion // .status) \(.html_url)\" end" || true)
+            echo "PR #$pr head $head: tree ${head_tree} (push tree ${tree}), latest PR CI: $ci"
+            if [ -n "$tree" ] && [ "$tree" = "$head_tree" ] && [ "${ci%% *}" = "success" ]; then covered=true; fi
+          else
+            echo "No merged PR into $BRANCH for $SHA"
+          fi
+          echo "covered=$covered" >> "$GITHUB_OUTPUT"
+      - id: out
+        env:
+          EVENT: ${{ github.event_name }}
+          CODE: ${{ steps.code.outputs.code }}
+          COVERED: ${{ steps.covered.outputs.covered }}
+        run: |
+          if [ "$EVENT" = workflow_dispatch ]; then build=true why="manual run"
+          elif [ "$COVERED" = true ]; then build=false why="tree already tested by its PR's green CI"
+          elif [ "$CODE" = true ]; then build=true why="code changed"
+          else build=false why="draft or docs-only"
+          fi
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+          echo "verify: $build ($why)" | tee -a "$GITHUB_STEP_SUMMARY"
+
+  verify:
+    needs: detect
+    if: needs.detect.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    # PLATFORM_MODULES_PACKAGES_TOKEN lives at repo level or in the TEST environment.
+    environment: TEST
+    env:
+      GH_PACKAGES_USERNAME: ${{ vars.PLATFORM_MODULES_PACKAGES_USERNAME || github.actor }}
+      GH_PACKAGES_TOKEN: ${{ secrets.PLATFORM_MODULES_PACKAGES_TOKEN || secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Java 25
+        uses: actions/setup-java@v6
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Configure GitHub Packages credentials
+        run: |
+          mkdir -p "$HOME/.m2"
+          cat > "$HOME/.m2/settings.xml" <<'XML'
+          <settings xmlns="http://maven.apache.org/SETTINGS/1.2.0">
+            <servers>
+              <server>
+                <id>github</id>
+                <username>${env.GH_PACKAGES_USERNAME}</username>
+                <password>${env.GH_PACKAGES_TOKEN}</password>
+              </server>
+            </servers>
+          </settings>
+          XML
+      - name: Build and test (unit + integration)
+        run: mvn -B -ntp verify
+
+  secret-scan:
+    # Formerly gitleaks.yml: full history, values redacted. PRs (not drafts) and manual runs; pushes carry
+    # commits their PR already scanned.
+    if: ${{ (github.event_name == 'pull_request' && !github.event.pull_request.draft) || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks 8.30.1
+        run: |
+          curl -sSfL -o gitleaks.tgz https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tgz" | sha256sum -c -
+          tar xzf gitleaks.tgz gitleaks
+      - name: Scan history (values redacted)
+        run: ./gitleaks git . --redact --no-banner --verbose --exit-code 1
+
+  ci-gate:
+    # The single required-style check: fails if any job failed or was cancelled; legitimately skipped jobs pass.
+    if: always()
+    needs: [detect, verify, secret-scan]
+    runs-on: ubuntu-latest
+    steps:
+      - run: '[[ "${{ contains(needs.*.result, ''failure'') || contains(needs.*.result, ''cancelled'') }}" == "false" ]]'

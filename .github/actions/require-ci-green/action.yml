@@ -1,0 +1,39 @@
+# CD safety gate: deploy only a commit whose CI passed. Waits for the newest ci-gate check run
+# (ci.yml) on this exact SHA and fails unless it concluded success. The job needs checks: read.
+name: require-ci-green
+description: Wait for ci-gate on the SHA being deployed and fail unless it succeeded.
+inputs:
+  sha:
+    description: Commit to check.
+    required: true
+  appear-timeout-seconds:
+    description: Fail if no ci-gate check run exists for the SHA after this long.
+    required: false
+    default: '600'
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        SHA: ${{ inputs.sha }}
+        APPEAR_TIMEOUT: ${{ inputs.appear-timeout-seconds }}
+      run: |
+        start=$(date +%s)
+        while true; do
+          read -r status conclusion url <<<"$(gh api "repos/$REPO/commits/$SHA/check-runs?check_name=ci-gate&per_page=100" --jq \
+            '[.check_runs[] | select(.app.slug == "github-actions")] | sort_by(.id) | last | if . == null then "" else "\(.status) \(.conclusion // "-") \(.html_url)" end' || true)"
+          if [ "${status:-}" = "completed" ]; then
+            echo "ci-gate for $SHA: $conclusion ($url)"
+            if [ "$conclusion" = "success" ]; then exit 0; fi
+            echo "::error::CI (ci-gate) did not pass for $SHA ($conclusion); not deploying. $url"
+            exit 1
+          fi
+          if [ -z "${status:-}" ] && [ $(( $(date +%s) - start )) -ge "$APPEAR_TIMEOUT" ]; then
+            echo "::error::No ci-gate check run for $SHA after ${APPEAR_TIMEOUT}s; CI never ran on this commit. Not deploying."
+            exit 1
+          fi
+          echo "ci-gate for $SHA: ${status:-not started yet}; waiting"
+          sleep 20
+        done
