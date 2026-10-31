@@ -32,9 +32,10 @@ class PrivacySubjectControllerTest {
         store = mock(PrivacySubjectStore.class);
         IdentityProperties properties = new IdentityProperties(
                 IdentityRequests.SECRET, 300_000L, IdentityProperties.Headers.defaults());
-        mockMvc = MockMvcBuilders.standaloneSetup(new PrivacySubjectController(store))
+        mockMvc = MockMvcBuilders.standaloneSetup(new PrivacySubjectController(store, new PrivacySignature(PrivacySigning.PROPERTIES)))
                 .addFilters(new GatewayIdentityFilter(properties))
                 .setControllerAdvice(new PlatformExceptionHandler())
+                .defaultRequest(get("/").with(PrivacySigning.signed()))
                 .build();
     }
 
@@ -66,6 +67,23 @@ class PrivacySubjectControllerTest {
                 .andExpect(status().isBadRequest());
         mockMvc.perform(IdentityRequests.withIdentity(get("/documents/privacy/subjects/a b"), "mybuilding-api", "", "ten-1",
                         "HOST_PRIVACY"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(store);
+    }
+
+    @Test
+    void aCallWhoseSignedPartsWereChangedOrThatTargetsAScopedIdIsRefused() throws Exception {
+        // Signed for one address, then sent with another: refused before any lookup.
+        mockMvc.perform(IdentityRequests.withIdentity(post("/documents/privacy/subjects/kc-9/erasure"), "mybuilding-api", "", "ten-1",
+                        "HOST_PRIVACY")
+                        .with(request -> {
+                            request.addHeader("X-Subject-Email", "someone-else@example.com");
+                            return request;
+                        }))
+                .andExpect(status().isUnauthorized());
+        // A shared-mailbox style id such as PROPERTY:5 is not a subject.
+        mockMvc.perform(IdentityRequests.withIdentity(post("/documents/privacy/subjects/PROPERTY:5/erasure"), "mybuilding-api", "",
+                        "ten-1", "HOST_PRIVACY"))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(store);
     }

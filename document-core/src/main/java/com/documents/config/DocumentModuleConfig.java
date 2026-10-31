@@ -58,8 +58,11 @@ public class DocumentModuleConfig {
                                                  DocumentDomainService domain,
                                                  DocumentsProperties properties,
                                                  DocumentAccessPort access,
-                                                 org.springframework.context.ApplicationEventPublisher events) {
-        return new DocumentAppService(documents, objectStorage, ownerLookup, clock, domain, properties, access, events);
+                                                 org.springframework.context.ApplicationEventPublisher events,
+                                                 org.springframework.beans.factory.ObjectProvider<
+                                                         com.documents.application.port.DocumentWriteGuard> writeGuard) {
+        return new DocumentAppService(documents, objectStorage, ownerLookup, clock, domain, properties, access, events,
+                writeGuard.getIfAvailable(() -> com.documents.application.port.DocumentWriteGuard.NONE));
     }
 
     @Bean

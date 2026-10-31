@@ -23,19 +23,23 @@ import java.util.Map;
 public class PrivacySubjectController {
 
     private final PrivacySubjectStore store;
+    private final PrivacySignature signature;
 
-    public PrivacySubjectController(PrivacySubjectStore store) {
+    public PrivacySubjectController(PrivacySubjectStore store, PrivacySignature signature) {
         this.store = store;
+        this.signature = signature;
     }
 
     @GetMapping
-    public Map<String, Object> export(@PathVariable String subjectId) {
+    public Map<String, Object> export(@PathVariable String subjectId, jakarta.servlet.http.HttpServletRequest request) {
+        signature.verify(request);
         return store.export(tenant(), subject(subjectId));
     }
 
     /** Idempotent: a repeat erases nothing more and answers the same shape. */
     @PostMapping("/erasure")
-    public Map<String, Object> erase(@PathVariable String subjectId) {
+    public Map<String, Object> erase(@PathVariable String subjectId, jakarta.servlet.http.HttpServletRequest request) {
+        signature.verify(request);
         return store.erase(tenant(), subject(subjectId));
     }
 
@@ -48,7 +52,7 @@ public class PrivacySubjectController {
     }
 
     static String subject(String subjectId) {
-        if (subjectId == null || !subjectId.matches("[A-Za-z0-9._:@-]{1,128}")) {
+        if (subjectId == null || !subjectId.matches("[A-Za-z0-9._@-]{1,128}")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "INVALID_SUBJECT");
         }
         return subjectId;

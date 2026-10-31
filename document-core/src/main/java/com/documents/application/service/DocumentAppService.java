@@ -51,6 +51,7 @@ public class DocumentAppService {
     private final DocumentsProperties properties;
     private final DocumentAccessPort access;
     private final ApplicationEventPublisher events;
+    private final com.documents.application.port.DocumentWriteGuard writeGuard;
 
     public DocumentAppService(DocumentRepositoryPort documents,
                               ObjectStoragePort objectStorage,
@@ -69,6 +70,20 @@ public class DocumentAppService {
                               DocumentsProperties properties,
                               DocumentAccessPort access,
                               ApplicationEventPublisher events) {
+        this(documents, objectStorage, ownerLookup, clock, domain, properties, access, events,
+                com.documents.application.port.DocumentWriteGuard.NONE);
+    }
+
+    public DocumentAppService(DocumentRepositoryPort documents,
+                              ObjectStoragePort objectStorage,
+                              OwnerLookupPort ownerLookup,
+                              ClockPort clock,
+                              DocumentDomainService domain,
+                              DocumentsProperties properties,
+                              DocumentAccessPort access,
+                              ApplicationEventPublisher events,
+                              com.documents.application.port.DocumentWriteGuard writeGuard) {
+        this.writeGuard = writeGuard == null ? com.documents.application.port.DocumentWriteGuard.NONE : writeGuard;
         this.documents = documents;
         this.objectStorage = objectStorage;
         this.ownerLookup = ownerLookup;
@@ -83,6 +98,7 @@ public class DocumentAppService {
         requireActor(actor);
         OwnerRef owner = new OwnerRef(request.ownerType(), request.ownerId());
         assertCanWrite(actor, owner);
+        writeGuard.beforeCreate(actor.tenantId(), owner.type(), owner.id());
 
         String product;
         try {
