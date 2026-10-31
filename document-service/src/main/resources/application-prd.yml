@@ -40,4 +40,4 @@ logging:
 
 gateway:
   identity:
-    hmac-secret: ${GATEWAY_INTERNAL_SECRET:dev-gateway-internal-secret}
+    hmac-secret: ${GATEWAY_INTERNAL_SECRET}  # no default on deployed profiles: unset fails startup
