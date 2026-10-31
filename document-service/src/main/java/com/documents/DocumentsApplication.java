@@ -13,7 +13,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 @ComponentScan(basePackages = {
         "com.documents.controller",
-        "com.documents.security"
+        "com.documents.security",
+        "com.documents.privacy"
 })
 public class DocumentsApplication {
 
