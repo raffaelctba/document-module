@@ -51,6 +51,7 @@ public class DocumentAppService {
     private final DocumentsProperties properties;
     private final DocumentAccessPort access;
     private final ApplicationEventPublisher events;
+    private final com.documents.application.port.DocumentWriteGuard writeGuard;
 
     public DocumentAppService(DocumentRepositoryPort documents,
                               ObjectStoragePort objectStorage,
@@ -69,6 +70,20 @@ public class DocumentAppService {
                               DocumentsProperties properties,
                               DocumentAccessPort access,
                               ApplicationEventPublisher events) {
+        this(documents, objectStorage, ownerLookup, clock, domain, properties, access, events,
+                com.documents.application.port.DocumentWriteGuard.NONE);
+    }
+
+    public DocumentAppService(DocumentRepositoryPort documents,
+                              ObjectStoragePort objectStorage,
+                              OwnerLookupPort ownerLookup,
+                              ClockPort clock,
+                              DocumentDomainService domain,
+                              DocumentsProperties properties,
+                              DocumentAccessPort access,
+                              ApplicationEventPublisher events,
+                              com.documents.application.port.DocumentWriteGuard writeGuard) {
+        this.writeGuard = writeGuard == null ? com.documents.application.port.DocumentWriteGuard.NONE : writeGuard;
         this.documents = documents;
         this.objectStorage = objectStorage;
         this.ownerLookup = ownerLookup;
@@ -83,6 +98,7 @@ public class DocumentAppService {
         requireActor(actor);
         OwnerRef owner = new OwnerRef(request.ownerType(), request.ownerId());
         assertCanWrite(actor, owner);
+        writeGuard.beforeCreate(actor.tenantId(), owner.type(), owner.id());
 
         String product;
         try {
@@ -187,6 +203,7 @@ public class DocumentAppService {
     }
 
     public DocumentResponseDto complete(String documentId, CompleteDocumentRequestDto request, DocumentActor actor) {
+        refuseLateUploadOfErasedOwner(documentId, actor);
         Document document = requireWritable(documentId, actor);
         if (!objectStorage.exists(document.storageKey())) {
             throw new IllegalStateException("Object has not been uploaded: " + documentId);
@@ -366,6 +383,27 @@ public class DocumentAppService {
             throw new DocumentNotFoundException(documentId);
         }
         return document;
+    }
+
+    /**
+     * A signed upload URL handed out before the owner was erased still works at the store: bytes that arrive for a
+     * document the erasure removed, or for an owner that is now erased, are deleted and the completion refused.
+     */
+    private void refuseLateUploadOfErasedOwner(String documentId, DocumentActor actor) {
+        requireActor(actor);
+        Document document = documents.findByIdAndTenantId(documentId, actor.tenantId()).orElse(null);
+        if (document == null || !document.neverCompleted()) {
+            return;
+        }
+        try {
+            if (document.deleted()) {
+                throw new DocumentNotFoundException(documentId);
+            }
+            writeGuard.beforeCreate(document.tenantId(), document.owner().type(), document.owner().id());
+        } catch (RuntimeException refused) {
+            objectStorage.delete(document.storageKey());
+            throw refused;
+        }
     }
 
     private Document requireWritable(String documentId, DocumentActor actor) {

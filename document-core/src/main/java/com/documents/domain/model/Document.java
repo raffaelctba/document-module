@@ -147,6 +147,11 @@ public class Document {
         return deletedAt != null;
     }
 
+    /** Created and never completed, whether or not it was deleted since. */
+    public boolean neverCompleted() {
+        return status == DocumentStatus.PENDING_UPLOAD;
+    }
+
     public boolean pendingUpload() {
         return status == DocumentStatus.PENDING_UPLOAD && !deleted();
     }
