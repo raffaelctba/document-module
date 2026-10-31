@@ -203,6 +203,7 @@ public class DocumentAppService {
     }
 
     public DocumentResponseDto complete(String documentId, CompleteDocumentRequestDto request, DocumentActor actor) {
+        refuseLateUploadOfErasedOwner(documentId, actor);
         Document document = requireWritable(documentId, actor);
         if (!objectStorage.exists(document.storageKey())) {
             throw new IllegalStateException("Object has not been uploaded: " + documentId);
@@ -382,6 +383,27 @@ public class DocumentAppService {
             throw new DocumentNotFoundException(documentId);
         }
         return document;
+    }
+
+    /**
+     * A signed upload URL handed out before the owner was erased still works at the store: bytes that arrive for a
+     * document the erasure removed, or for an owner that is now erased, are deleted and the completion refused.
+     */
+    private void refuseLateUploadOfErasedOwner(String documentId, DocumentActor actor) {
+        requireActor(actor);
+        Document document = documents.findByIdAndTenantId(documentId, actor.tenantId()).orElse(null);
+        if (document == null || !document.neverCompleted()) {
+            return;
+        }
+        try {
+            if (document.deleted()) {
+                throw new DocumentNotFoundException(documentId);
+            }
+            writeGuard.beforeCreate(document.tenantId(), document.owner().type(), document.owner().id());
+        } catch (RuntimeException refused) {
+            objectStorage.delete(document.storageKey());
+            throw refused;
+        }
     }
 
     private Document requireWritable(String documentId, DocumentActor actor) {

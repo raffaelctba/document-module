@@ -34,6 +34,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -80,6 +81,35 @@ class DocumentAppServiceTest {
         assertTrue(response.storageKey().startsWith("docs/myproperty/ten-1/PROPERTY/prop-123/"));
         assertNotNull(response.uploadUrl());
         assertNull(response.contentUrl());
+    }
+
+    @Test
+    void bytesUploadedAfterTheOwnerWasErasedAreRemovedAndTheCompletionRefused() {
+        java.util.concurrent.atomic.AtomicBoolean erased = new java.util.concurrent.atomic.AtomicBoolean();
+        DocumentsProperties properties = DocumentDomainServiceTest.properties();
+        DocumentAppService guarded = new DocumentAppService(documents, storage, ownerLookup, () -> NOW,
+                new DocumentDomainService(properties), properties, new com.documents.api.DocumentAccessPort() {},
+                null, (tenant, ownerType, ownerId) -> {
+                    if (erased.get()) {
+                        throw new IllegalStateException("SUBJECT_ERASED");
+                    }
+                });
+        DocumentResponseDto created = guarded.create(galleryRequest("myproperty"), manager());
+        erased.set(true);
+        storage.put(created.storageKey(), new byte[] {1, 2, 3}, "image/png");
+
+        assertThrows(IllegalStateException.class, () -> guarded.complete(created.id(), null, manager()));
+        assertFalse(storage.exists(created.storageKey()));
+    }
+
+    @Test
+    void bytesUploadedForADocumentDeletedBeforeTheUploadAreRemoved() {
+        DocumentResponseDto created = service.create(galleryRequest("myproperty"), manager());
+        service.delete(created.id(), manager());
+        storage.put(created.storageKey(), new byte[] {1, 2, 3}, "image/png");
+
+        assertThrows(DocumentNotFoundException.class, () -> service.complete(created.id(), null, manager()));
+        assertFalse(storage.exists(created.storageKey()));
     }
 
     @Test
