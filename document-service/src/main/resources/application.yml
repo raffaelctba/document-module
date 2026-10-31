@@ -76,7 +76,7 @@ management:
 
 gateway:
   identity:
-    hmac-secret: ${GATEWAY_INTERNAL_SECRET:dev-gateway-internal-secret}
+    hmac-secret: ${GATEWAY_INTERNAL_SECRET}  # no default outside application-dev.yml: unset fails startup
     max-skew-ms: 300000
     headers:
       user-id: X-User-Id
